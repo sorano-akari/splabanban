@@ -440,10 +440,11 @@ function thinkAI(player, opponent, now) {
         }
     }
 
-    // 候補の中からランダムに1つ回す
+    // 候補の中からランダムに1つ選び、回転角も90度〜270度（1〜3回）からランダムにする
     if (candidates.length > 0) {
         let target = candidates[Math.floor(Math.random() * candidates.length)];
-        rotateTileLogic(target, 1);
+        let rotCount = Math.floor(Math.random() * 3) + 1; // 1回(90度), 2回(180度), 3回(270度)
+        rotateTileLogic(target, rotCount);
         target.lockedBy = player.id;
         target.lockUntil = now + 1000;
     }
@@ -553,13 +554,6 @@ function update(dt) {
                 tile.owner = p.id;
                 checkEncirclement(); // 塗るたびに必殺技チェック
             }
-            p.toDir = tile.getExit(p.fromDir);
-            
-            if (p.toDir === null) {
-                p.toDir = p.fromDir;
-                p.progress = 0.5; 
-                p.reverse();
-            }
         }
 
         if (p.progress >= 1.0) {
@@ -575,6 +569,14 @@ function update(dt) {
                     p.reverse(); 
                 } else {
                     p.tx = nx; p.ty = ny; p.fromDir = enterDir; p.progress -= 1.0;
+                    
+                    // 【修正】新しいマスに入った瞬間（0.0の時点）に即座に出口を計算してセットする
+                    p.toDir = nextTile.getExit(p.fromDir);
+                    if (p.toDir === null) {
+                        p.toDir = p.fromDir;
+                        p.progress = 0.5; 
+                        p.reverse();
+                    }
                 }
             }
         }
