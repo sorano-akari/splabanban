@@ -2,43 +2,122 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>チクタク・ペイント・ウォーズ (MVP版)</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>スプラバンバン</title>
     <style>
         body { margin: 0; background: #222; color: #fff; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; user-select: none; touch-action: none; overflow: hidden; }
-        canvas { background: #333; margin-top: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.5); cursor: pointer; }
-        #ui { margin-top: 15px; display: flex; gap: 30px; font-size: 1.4rem; font-weight: bold; align-items: center; }
-        .p1 { color: #00ffff; }
-        .p2 { color: #ff0055; }
-        #timer { font-size: 2rem; color: #fff; background: #444; padding: 5px 15px; border-radius: 8px; }
-        #instructions { margin-top: 15px; font-size: 0.95rem; color: #ccc; text-align: center; line-height: 1.4; }
+        h1 { margin: 10px 0 0 0; font-size: 1.8rem; color: #fff; text-shadow: 0 0 10px #aaa; }
+        canvas { background: #333; margin-top: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.8); cursor: pointer; }
+        #ui { margin-top: 10px; display: flex; gap: 30px; font-size: 1.4rem; font-weight: bold; align-items: center; }
+        .p1 { color: #00ffff; text-shadow: 0 0 5px #00ffff; }
+        .p2 { color: #ff0055; text-shadow: 0 0 5px #ff0055; }
+        #timer { font-size: 2rem; color: #fff; background: #444; padding: 5px 15px; border-radius: 8px; box-shadow: inset 0 0 5px #000; }
+        #instructions { margin-top: 10px; font-size: 0.9rem; color: #ccc; text-align: center; line-height: 1.4; max-width: 600px; padding: 0 10px; }
+        .highlight { color: #fff; font-weight: bold; }
     </style>
 </head>
 <body>
+    <h1>スプラバンバン</h1>
+    <div id="settings" style="margin-top: 5px; display: flex; gap: 15px; font-size: 0.9rem; color: #ccc; align-items: center; flex-wrap: wrap; justify-content: center;">
+        <label>盤面: <select id="gridSelect" style="background:#444; color:#fff; border:none; border-radius:4px; padding:2px;"><option value="5">5x5 (普)</option><option value="7">7x7 (広)</option><option value="9">9x9 (超)</option></select></label>
+        <label>速度: <select id="speedSelect" style="background:#444; color:#fff; border:none; border-radius:4px; padding:2px;"><option value="3.8">遅</option><option value="2.5" selected>普</option><option value="1.2">速</option></select></label>
+        <label>時間: <select id="timeSelect" style="background:#444; color:#fff; border:none; border-radius:4px; padding:2px;"><option value="60">60秒</option><option value="90" selected>90秒</option><option value="120">120秒</option></select></label>
+        <button id="shuffleBtn" style="padding: 4px 10px; cursor:pointer; background:#ffaa00; color:#000; border:none; border-radius:4px; font-weight:bold;">🎲 盤面シャッフル</button>
+    </div>
+    <div style="margin-top: 15px; display: flex; gap: 10px; align-items: center; justify-content: center;">
+        <button id="startBtn" style="padding: 12px 40px; cursor:pointer; background: linear-gradient(45deg, #00ffff, #0088ff); color:#000; border:none; border-radius:30px; font-size: 1.5rem; font-weight:bold; box-shadow: 0 4px 15px rgba(0, 255, 255, 0.4); transition: 0.2s;">▶ ゲームスタート</button>
+        <button id="demoBtn" style="padding: 8px 15px; cursor:pointer; background: #555; color:#fff; border:none; border-radius:20px; font-size: 0.9rem; font-weight:bold;">🤖 デモ</button>
+    </div>
+    <div id="records" style="font-size: 0.8rem; color: #aaa; margin-top: 10px;">
+        戦績: あなた <span id="winCount1">0</span>勝 / COM <span id="winCount2">0</span>勝 / 引分 <span id="drawCount">0</span>回
+        <button id="recordResetBtn" style="margin-left: 10px; padding: 2px 5px; font-size: 0.7rem; background:#444; color:#fff; border:none; border-radius:4px; cursor:pointer;">戦績リセット</button>
+    </div>
     <div id="ui">
         <div class="p1">あなた: <span id="score1">0</span>%</div>
-        <div id="timer">60</div>
+        <div id="timer">90</div>
         <div class="p2">COM: <span id="score2">0</span>%</div>
     </div>
-    <canvas id="gameCanvas" width="600" height="600"></canvas>
+    <canvas id="gameCanvas" width="500" height="500"></canvas>
     <div id="instructions">
-        <strong>[クリック/タップ]</strong>: 90度回転<br>
-        <strong>[スワイプ/ドラッグ]</strong>: 隣の空きマスと入れ替え<br>
-        ※操作したマスは1秒間ロックされます。激突・行き止まりは逆走ペナルティ！
+        <strong>[タップで占有]</strong>: マスを触ると1秒間<span style="color:#00ffff">青く発光</span>し、何度でも自由に回せます。<br>
+        <strong>[フリック]</strong>: 隣のマスと入れ替え。<br>
+        <span class="highlight">【必殺技】自分の色で四角く囲むと、内側が一気に塗られます！</span>
     </div>
 
 <script>
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
-const GRID = 5;
-const TILE_SIZE = canvas.width / GRID;
-const SPEED = 1.2; // コマが1マス通過するのにかかる秒数
-const COOLDOWN_TIME = 1000; // 1秒
-const GAME_TIME = 60; // 60秒
+let GRID = 5;
+let TILE_SIZE = canvas.width / GRID;
+let SPEED = 2.5; 
+let GAME_TIME = 90; 
 
-const TYPES = ['line', 'curve', 'cross', 'overpass', 'oneway'];
+// 勝敗レコード
+let winsP1 = 0, winsP2 = 0, draws = 0;
 
-// タイルと、乗っているコマを「一緒に」論理回転させる関数
+// UIイベントのフック（待機中のみ変更可能）
+document.getElementById('gridSelect').addEventListener('change', (e) => { if(gameState === 'waiting') { GRID = parseInt(e.target.value); resetGame(); } });
+document.getElementById('speedSelect').addEventListener('change', (e) => { if(gameState === 'waiting') SPEED = parseFloat(e.target.value); });
+document.getElementById('timeSelect').addEventListener('change', (e) => { if(gameState === 'waiting') { GAME_TIME = parseInt(e.target.value); resetGame(); } });
+
+document.getElementById('shuffleBtn').addEventListener('click', () => {
+    // 待機中のみ盤面を再生成（シャッフル）可能
+    if (gameState === 'waiting') resetGame();
+});
+
+let isDemo = false; // デモモード判定フラグ
+
+function startGame() {
+    gameState = 'playing';
+    lastTime = performance.now();
+    
+    // 【重要】スタート時にプルダウンの最新の値を確実に読み込む
+    SPEED = parseFloat(document.getElementById('speedSelect').value);
+    
+    // プレイ中は各種設定ボタン・プルダウンを操作不可（disabled）にロックする
+    document.getElementById('startBtn').innerText = '⏸ 中断(ギブアップ)';
+    document.getElementById('startBtn').style.background = 'linear-gradient(45deg, #ff0055, #ff4444)';
+    document.getElementById('startBtn').style.boxShadow = '0 4px 15px rgba(255, 0, 85, 0.4)';
+    document.getElementById('startBtn').style.color = '#fff';
+    
+    let shuffleBtn = document.getElementById('shuffleBtn');
+    shuffleBtn.style.opacity = '0.5'; shuffleBtn.disabled = true;
+    document.getElementById('gridSelect').disabled = true;
+    document.getElementById('speedSelect').disabled = true;
+    document.getElementById('timeSelect').disabled = true;
+    document.getElementById('demoBtn').style.display = 'none';
+}
+
+document.getElementById('startBtn').addEventListener('click', () => {
+    if (gameState === 'waiting') {
+        isDemo = false;
+        startGame();
+    } else if (gameState === 'playing') {
+        winsP2++; updateRecords(); resetGame();
+    }
+});
+
+document.getElementById('demoBtn').addEventListener('click', () => {
+    if (gameState === 'waiting') {
+        isDemo = true;
+        startGame();
+    }
+});
+
+document.getElementById('recordResetBtn').addEventListener('click', () => {
+    winsP1 = 0; winsP2 = 0; draws = 0;
+    updateRecords();
+});
+
+function updateRecords() {
+    document.getElementById('winCount1').innerText = winsP1;
+    document.getElementById('winCount2').innerText = winsP2;
+    document.getElementById('drawCount').innerText = draws;
+}
+
+const TYPES = ['line', 'curve', 'cross', 'overpass', 'oneway', 'double_curve'];
+
 function rotateTileLogic(tile, diff) {
     tile.rotation = (tile.rotation + diff + 4) % 4;
     [p1, p2].forEach(p => {
@@ -53,14 +132,17 @@ class Tile {
     constructor(x, y) {
         this.x = x;
         this.y = y;
-        this.visualX = x; // スライドアニメーション用
+        this.visualX = x; 
         this.visualY = y;
         this.type = TYPES[Math.floor(Math.random() * TYPES.length)];
         this.rotation = Math.floor(Math.random() * 4);
-        this.visualRotation = this.rotation; // 回転アニメーション用
-        this.owner = 0; // 0:中立, 1:P1, 2:P2
-        this.cooldown = 0;
-        this.lastTapTime = 0; // ダブルタップ判定用
+        this.visualRotation = this.rotation; 
+        this.owner = 0; 
+        this.vfxTime = 0; // 必殺技のエフェクト用タイマー
+        
+        // 占有権システム
+        this.lockedBy = 0; // 0:なし, 1:P1, 2:P2
+        this.lockUntil = 0;
     }
 
     getExit(enterDir) {
@@ -70,13 +152,18 @@ class Tile {
             if (localIn === 0) localOut = 2;
             if (localIn === 2) localOut = 0;
         } else if (this.type === 'curve') {
-            // L字の1本道（上と右が繋がる。下と左は行き止まり）
             if (localIn === 0) localOut = 1;
             if (localIn === 1) localOut = 0;
         } else if (this.type === 'cross' || this.type === 'overpass') {
             localOut = (localIn + 2) % 4;
         } else if (this.type === 'oneway') {
             if (localIn === 2) localOut = 0; 
+        } else if (this.type === 'double_curve') {
+            // 交わらない2つのカーブ（0⇔3, 1⇔2）
+            if (localIn === 0) localOut = 3;
+            if (localIn === 3) localOut = 0;
+            if (localIn === 1) localOut = 2;
+            if (localIn === 2) localOut = 1;
         }
         if (localOut === null) return null;
         return (localOut + this.rotation) % 4;
@@ -92,6 +179,7 @@ class Player {
         this.fromDir = 0;
         this.toDir = 2;
         this.progress = 0.5;
+        this.cooldown = 0; // COM用の行動待機時間
     }
 
     reverse() {
@@ -102,22 +190,68 @@ class Player {
     }
 }
 
-// ゲームステート
-let gameState = 'playing'; // 'playing' or 'finished'
+let gameState = 'playing'; 
 let timeLeft = GAME_TIME;
 let board = [];
-for (let y = 0; y < GRID; y++) {
-    board[y] = [];
-    for (let x = 0; x < GRID; x++) {
-        board[y][x] = new Tile(x, y);
-    }
-}
-
-let p1 = new Player(1, '#00ffff', 0, 0);
-let p2 = new Player(2, '#ff0055', GRID - 1, GRID - 1);
-p2.fromDir = 2; p2.toDir = 0;
-
+let p1, p2;
 let lastTime = performance.now();
+
+function resetGame() {
+    TILE_SIZE = canvas.width / GRID;
+    board = [];
+    
+    // まず上半分を通常通りランダム生成
+    for (let y = 0; y < GRID; y++) {
+        board[y] = [];
+        for (let x = 0; x < GRID; x++) {
+            board[y][x] = new Tile(x, y);
+        }
+    }
+    
+    // 【フェアプレイ機能】点対称（180度回転）で下半分にコピー
+    for (let y = 0; y < Math.ceil(GRID / 2); y++) {
+        for (let x = 0; x < GRID; x++) {
+            if (y === Math.floor(GRID / 2) && x >= Math.ceil(GRID / 2)) continue; // 中央行の右半分は処理済み
+            let tx = GRID - 1 - x;
+            let ty = GRID - 1 - y;
+            board[ty][tx].type = board[y][x].type;
+            board[ty][tx].rotation = (board[y][x].rotation + 2) % 4;
+            board[ty][tx].visualRotation = board[ty][tx].rotation; // 【修正】見た目の角度も即座に同期する
+        }
+    }
+
+    // スタート地点を必ず「十字」にし、最初から自陣の色にしておく
+    board[0][0].type = 'cross'; board[0][0].rotation = 0; board[0][0].visualRotation = 0; board[0][0].owner = 1;
+    board[GRID - 1][GRID - 1].type = 'cross'; board[GRID - 1][GRID - 1].rotation = 0; board[GRID - 1][GRID - 1].visualRotation = 0; board[GRID - 1][GRID - 1].owner = 2;
+
+    p1 = new Player(1, '#00ffff', 0, 0);
+    p1.fromDir = 0; p1.toDir = 2; p1.willBounce = false;
+    p2 = new Player(2, '#ff0055', GRID - 1, GRID - 1);
+    p2.fromDir = 2; p2.toDir = 0; p2.willBounce = false;
+    
+    timeLeft = GAME_TIME;
+    document.getElementById('timer').innerText = GAME_TIME;
+    gameState = 'waiting'; // スタートボタンを押すまで待機状態に
+    
+    // UIボタンのリセット
+    let startBtn = document.getElementById('startBtn');
+    if(startBtn) {
+        startBtn.innerText = '▶ ゲームスタート';
+        startBtn.style.background = 'linear-gradient(45deg, #00ffff, #0088ff)';
+        startBtn.style.boxShadow = '0 4px 15px rgba(0, 255, 255, 0.4)';
+        startBtn.style.color = '#000';
+    }
+    let shuffleBtn = document.getElementById('shuffleBtn');
+    if(shuffleBtn) { shuffleBtn.style.opacity = '1.0'; shuffleBtn.disabled = false; }
+    
+    document.getElementById('gridSelect').disabled = false;
+    document.getElementById('speedSelect').disabled = false;
+    document.getElementById('timeSelect').disabled = false;
+    
+    let demoBtn = document.getElementById('demoBtn');
+    if(demoBtn) demoBtn.style.display = 'block';
+}
+resetGame();
 
 // --- 操作・イベント処理 ---
 let startPos = null;
@@ -130,12 +264,6 @@ function getGridCoord(e) {
     let x = Math.floor((clientX - rect.left) / TILE_SIZE);
     let y = Math.floor((clientY - rect.top) / TILE_SIZE);
     return {x, y, clientX, clientY};
-}
-
-function isOccupied(tx, ty) {
-    if (p1.tx === tx && p1.ty === ty) return true;
-    if (p2.tx === tx && p2.ty === ty) return true;
-    return false;
 }
 
 canvas.addEventListener('mousedown', handleStart);
@@ -151,6 +279,12 @@ function handleStart(e) {
     startTile = board[pos.y][pos.x];
 }
 
+function isOccupied(tx, ty) {
+    if (p1.tx === tx && p1.ty === ty) return true;
+    if (p2.tx === tx && p2.ty === ty) return true;
+    return false;
+}
+
 function handleEnd(e) {
     if (!startPos || gameState !== 'playing') return;
     
@@ -160,6 +294,11 @@ function handleEnd(e) {
     let dy = endClientY - startPos.clientY;
     let now = performance.now();
     
+    // 相手が占有中のマスは操作不能
+    if (now < startTile.lockUntil && startTile.lockedBy === 2) {
+        startPos = null; return;
+    }
+
     if (Math.abs(dx) > 15 || Math.abs(dy) > 15) {
         // フリック（入れ替え）
         let targetX = startTile.x;
@@ -169,100 +308,164 @@ function handleEnd(e) {
 
         if (targetX >= 0 && targetX < GRID && targetY >= 0 && targetY < GRID) {
             let targetTile = board[targetY][targetX];
-            if (now > startTile.cooldown && now > targetTile.cooldown) {
+            if (now >= targetTile.lockUntil || targetTile.lockedBy === 1) {
                 if (!isOccupied(startTile.x, startTile.y) && !isOccupied(targetX, targetY)) {
-                    let tempType = startTile.type;
-                    let tempRot = startTile.rotation;
-                    let tempOwner = startTile.owner;
-                    let tempVx = startTile.visualX;
-                    let tempVy = startTile.visualY;
-                    let tempVr = startTile.visualRotation;
+                    let tempType = startTile.type; let tempRot = startTile.rotation; let tempOwner = startTile.owner;
+                    let tempVx = startTile.visualX; let tempVy = startTile.visualY; let tempVr = startTile.visualRotation;
                     
-                    startTile.type = targetTile.type;
-                    startTile.rotation = targetTile.rotation;
-                    startTile.owner = targetTile.owner;
-                    startTile.visualX = targetTile.visualX;
-                    startTile.visualY = targetTile.visualY;
-                    startTile.visualRotation = targetTile.visualRotation;
+                    startTile.type = targetTile.type; startTile.rotation = targetTile.rotation; startTile.owner = targetTile.owner;
+                    startTile.visualX = targetTile.visualX; startTile.visualY = targetTile.visualY; startTile.visualRotation = targetTile.visualRotation;
                     
-                    targetTile.type = tempType;
-                    targetTile.rotation = tempRot;
-                    targetTile.owner = tempOwner;
-                    targetTile.visualX = tempVx;
-                    targetTile.visualY = tempVy;
-                    targetTile.visualRotation = tempVr;
+                    targetTile.type = tempType; targetTile.rotation = tempRot; targetTile.owner = tempOwner;
+                    targetTile.visualX = tempVx; targetTile.visualY = tempVy; targetTile.visualRotation = tempVr;
                     
-                    startTile.cooldown = now + COOLDOWN_TIME;
-                    targetTile.cooldown = now + COOLDOWN_TIME;
+                    startTile.lockedBy = 1; startTile.lockUntil = now + 1000;
+                    targetTile.lockedBy = 1; targetTile.lockUntil = now + 1000;
+                    // フリックによって色の配置が変化したため、ここで囲み判定を実行
+                    checkEncirclement();
                 }
             }
         }
     } else {
-        // クリック（右/左回転）とダブルタップ（180度昇格）
-        let rect = canvas.getBoundingClientRect();
-        let clickLocalX = endClientX - rect.left - (startTile.x * TILE_SIZE);
-        let diff = (clickLocalX > TILE_SIZE / 2) ? 1 : -1; // 右半分で時計回り、左半分で反時計回り
-
-        if (now < startTile.lastTapTime + 300) {
-            // ダブルタップ成功：回転中に追加で90度回して計180度にする（クールダウンは延長）
-            rotateTileLogic(startTile, diff); 
-            startTile.cooldown = now + COOLDOWN_TIME;
-            startTile.lastTapTime = 0; 
-        } else if (now > startTile.cooldown) {
-            // 通常の90度回転（即座に回り始めるのでラグゼロ）
-            rotateTileLogic(startTile, diff);
-            startTile.cooldown = now + COOLDOWN_TIME;
-            startTile.lastTapTime = now;
-        }
+        // クリック（占有＆回転：1秒の猶予があるため時計回りに固定）
+        rotateTileLogic(startTile, 1);
+        startTile.lockedBy = 1;
+        startTile.lockUntil = now + 1000; 
+        // ※回転させた瞬間は盤面の色の配置が一切変わらないため、囲み判定は行わない
     }
     startPos = null;
     startTile = null;
 }
 
-// COM思考（少し賢めに調整）
-setInterval(() => {
-    if (gameState !== 'playing') return;
-    let rx = Math.floor(Math.random() * GRID);
-    let ry = Math.floor(Math.random() * GRID);
-    let tile = board[ry][rx];
-    let now = performance.now();
+// 必殺技：最大連結成分判定を用いた「囲碁式」の囲み判定（盤面の端も壁として機能）
+function getEnclosedTiles(pId) {
+    let visited = Array.from({length: GRID}, () => Array(GRID).fill(false));
+    let components = [];
 
-    if (now > tile.cooldown) {
-        if (Math.random() < 0.25) {
-            // 25%で入れ替えを狙う
-            let dirs = [{dx:1, dy:0}, {dx:-1, dy:0}, {dx:0, dy:1}, {dx:0, dy:-1}];
-            let dir = dirs[Math.floor(Math.random() * 4)];
-            let tx = rx + dir.dx;
-            let ty = ry + dir.dy;
-            
-            if (tx >= 0 && tx < GRID && ty >= 0 && ty < GRID) {
-                let tTile = board[ty][tx];
-                if (now > tTile.cooldown && !isOccupied(rx, ry) && !isOccupied(tx, ty)) {
-                    let tType = tile.type; let tRot = tile.rotation; let tOwn = tile.owner;
-                    let tVx = tile.visualX; let tVy = tile.visualY; let tVr = tile.visualRotation;
-                    
-                    tile.type = tTile.type; tile.rotation = tTile.rotation; tile.owner = tTile.owner;
-                    tile.visualX = tTile.visualX; tile.visualY = tTile.visualY; tile.visualRotation = tTile.visualRotation;
-                    
-                    tTile.type = tType; tTile.rotation = tRot; tTile.owner = tOwn;
-                    tTile.visualX = tVx; tTile.visualY = tVy; tTile.visualRotation = tVr;
-                    
-                    tile.cooldown = now + COOLDOWN_TIME;
-                    tTile.cooldown = now + COOLDOWN_TIME;
-                    return;
+    // 自分の色以外のマスをすべてグループ分け（連結成分分解）する
+    for (let y = 0; y < GRID; y++) {
+        for (let x = 0; x < GRID; x++) {
+            if (!visited[y][x] && board[y][x].owner !== pId) {
+                let comp = [];
+                let queue = [{x, y}];
+                visited[y][x] = true;
+
+                while (queue.length > 0) {
+                    let curr = queue.shift();
+                    comp.push(curr);
+                    let dirs = [[0,-1],[1,0],[0,1],[-1,0]];
+                    for (let d of dirs) {
+                        let nx = curr.x + d[0], ny = curr.y + d[1];
+                        if (nx >= 0 && nx < GRID && ny >= 0 && ny < GRID) {
+                            if (!visited[ny][nx] && board[ny][nx].owner !== pId) {
+                                visited[ny][nx] = true;
+                                queue.push({x: nx, y: ny});
+                            }
+                        }
+                    }
+                }
+                components.push(comp);
+            }
+        }
+    }
+
+    if (components.length <= 1) return []; // 囲まれた領域が存在しない
+
+    // 最も大きいグループ（＝「外側の世界」）のサイズを特定
+    let maxSize = 0;
+    for (let comp of components) {
+        if (comp.length > maxSize) maxSize = comp.length;
+    }
+
+    // 「外側の世界」より小さいグループはすべて「壁やマスで完全に切り取られた領域」とみなす
+    let enclosed = [];
+    for (let comp of components) {
+        if (comp.length < maxSize) {
+            enclosed.push(...comp);
+        }
+    }
+    return enclosed;
+}
+
+function checkEncirclement() {
+    let enc1 = getEnclosedTiles(1);
+    let enc2 = getEnclosedTiles(2);
+    let fillMap = Array.from({length: GRID}, () => Array(GRID).fill(null));
+    
+    // 両者が同時に同じ領域を囲んだ場合は、相殺されて無色（0）になる
+    enc1.forEach(t => fillMap[t.y][t.x] = 1);
+    enc2.forEach(t => { fillMap[t.y][t.x] = (fillMap[t.y][t.x] === 1) ? 0 : 2; });
+
+    let now = performance.now();
+    for(let y=0; y<GRID; y++) {
+        for(let x=0; x<GRID; x++) {
+            let targetOwner = fillMap[y][x];
+            if (targetOwner !== null && board[y][x].owner !== targetOwner) {
+                board[y][x].owner = targetOwner;
+                board[y][x].vfxTime = now + 600; // 発光エフェクトの点火
+            }
+        }
+    }
+}
+
+// COM（AI）の共通思考ルーチン
+function thinkAI(player, opponent, now) {
+    if (now < player.cooldown) return;
+    
+    let candidates = [];
+    let centerTx = player.tx, centerTy = player.ty;
+    let r = Math.random();
+    
+    if (r < 0.6) {
+        // 60%: 自分の周囲（メイン）を中心に触る
+        centerTx = player.tx; centerTy = player.ty;
+    } else if (r < 0.85) {
+        // 25%: 相手の周囲（妨害）を中心に触る
+        centerTx = opponent.tx; centerTy = opponent.ty;
+    } else {
+        // 15%: 完全にランダムな場所を触る
+        centerTx = Math.floor(Math.random() * GRID);
+        centerTy = Math.floor(Math.random() * GRID);
+    }
+
+    // ターゲット中心から3x3の範囲を操作候補にする
+    for (let y = centerTy - 1; y <= centerTy + 1; y++) {
+        for (let x = centerTx - 1; x <= centerTx + 1; x++) {
+            if (x >= 0 && x < GRID && y >= 0 && y < GRID) {
+                let t = board[y][x];
+                if (now >= t.lockUntil || t.lockedBy === player.id) {
+                    candidates.push(t);
                 }
             }
         }
-        rotateTileLogic(tile, 1);
-        tile.cooldown = now + COOLDOWN_TIME;
     }
-}, 600); // COMの操作頻度（ミリ秒）
+
+    // 候補の中からランダムに1つ回す
+    if (candidates.length > 0) {
+        let target = candidates[Math.floor(Math.random() * candidates.length)];
+        rotateTileLogic(target, 1);
+        target.lockedBy = player.id;
+        target.lockUntil = now + 1000;
+    }
+    
+    // 速度設定(SPEED)に合わせてAIの行動間隔も速くする
+    let baseDelay = 1200 / (SPEED / 2.5);
+    player.cooldown = now + baseDelay + Math.random() * 500;
+}
+
+// AI思考ループ
+setInterval(() => {
+    if (gameState !== 'playing') return;
+    let now = performance.now();
+    
+    thinkAI(p2, p1, now); // COMの行動
+    if (isDemo) thinkAI(p1, p2, now); // デモモード時はプレイヤー側もAI操作
+}, 150); 
 
 // --- 座標計算と描画 ---
 function getPos(p) {
     let tile = board[p.ty][p.tx];
     
-    // 1. 各方向のマス端（ローカル座標 -0.5〜0.5）
     const getOffset = (dir) => {
         if (dir === 0) return {x: 0, y: -0.5};
         if (dir === 1) return {x: 0.5, y: 0};
@@ -273,29 +476,43 @@ function getPos(p) {
     let start = getOffset(p.fromDir);
     let end = getOffset(p.toDir);
     
-    // 2. 奇跡の数式：二次ベジェ曲線で直線もL字カーブも一発で美しい軌道に！
     let prog = p.progress;
-    let lx = Math.pow(1 - prog, 2) * start.x + Math.pow(prog, 2) * end.x;
-    let ly = Math.pow(1 - prog, 2) * start.y + Math.pow(prog, 2) * end.y;
+    let lx, ly;
+    let isStraight = Math.abs(p.fromDir - p.toDir) === 2 || p.fromDir === p.toDir;
+    
+    if (isStraight) {
+        lx = start.x + (end.x - start.x) * prog;
+        ly = start.y + (end.y - start.y) * prog;
+    } else {
+        // 真円の弧に沿って滑らかに進む軌道の三角関数計算
+        let cx = start.x + end.x;
+        let cy = start.y + end.y;
+        let startAngle = Math.atan2(start.y - cy, start.x - cx);
+        let endAngle = Math.atan2(end.y - cy, end.x - cx);
+        
+        let diff = endAngle - startAngle;
+        if (diff > Math.PI) diff -= Math.PI * 2;
+        if (diff < -Math.PI) diff += Math.PI * 2;
+        
+        let currentAngle = startAngle + diff * prog;
+        lx = cx + 0.5 * Math.cos(currentAngle);
+        ly = cy + 0.5 * Math.sin(currentAngle);
+    }
 
-    // 3. アニメーション中の「ターンテーブル回転」を適用
     let angleDiff = (tile.visualRotation - tile.rotation) * Math.PI / 2;
     let rx = lx * Math.cos(angleDiff) - ly * Math.sin(angleDiff);
     let ry = lx * Math.sin(angleDiff) + ly * Math.cos(angleDiff);
     
-    // 4. スライドアニメーション中のマス座標に合成して返す
     let cx = tile.visualX * TILE_SIZE + TILE_SIZE / 2 + rx * TILE_SIZE;
     let cy = tile.visualY * TILE_SIZE + TILE_SIZE / 2 + ry * TILE_SIZE;
     return {x: cx, y: cy};
 }
 
-let scoreP1 = 0;
-let scoreP2 = 0;
+let scoreP1 = 0; let scoreP2 = 0;
 
 function update(dt) {
     if (gameState !== 'playing') return;
 
-    // アニメーションのイージング（滑らかな追尾）
     board.forEach(row => row.forEach(t => {
         t.visualX += (t.x - t.visualX) * 15 * dt;
         t.visualY += (t.y - t.visualY) * 15 * dt;
@@ -305,26 +522,39 @@ function update(dt) {
         t.visualRotation += rDiff * 15 * dt;
     }));
 
-    // タイマー更新
     timeLeft -= dt;
-    if (timeLeft <= 0) {
-        timeLeft = 0;
-        gameState = 'finished';
+    if (timeLeft <= 0 && gameState === 'playing') {
+        timeLeft = 0; 
+        gameState = 'finished'; 
+        
+        // 勝敗を1回だけ記録
+        if (scoreP1 > scoreP2) winsP1++;
+        else if (scoreP2 > scoreP1) winsP2++;
+        else draws++;
+        updateRecords();
+        
+        // リザルト確認後、画面タップで設定へ戻るリスナーを登録
+        canvas.addEventListener('click', function onResultClick() {
+            if (gameState === 'finished') {
+                canvas.removeEventListener('click', onResultClick);
+                resetGame();
+            }
+        });
     }
     document.getElementById('timer').innerText = Math.ceil(timeLeft);
 
-    let now = performance.now();
     [p1, p2].forEach(p => {
         let oldProg = p.progress;
         p.progress += dt / SPEED;
 
-        // タイルの中央を越えたら陣地判定と次の方向決定
         if (oldProg < 0.5 && p.progress >= 0.5) {
             let tile = board[p.ty][p.tx];
-            tile.owner = p.id; 
+            if (tile.owner !== p.id) {
+                tile.owner = p.id;
+                checkEncirclement(); // 塗るたびに必殺技チェック
+            }
             p.toDir = tile.getExit(p.fromDir);
             
-            // 行き止まり（または逆送）なら反転
             if (p.toDir === null) {
                 p.toDir = p.fromDir;
                 p.progress = 0.5; 
@@ -332,13 +562,9 @@ function update(dt) {
             }
         }
 
-        // 次のマスへ
         if (p.progress >= 1.0) {
             let nx = p.tx, ny = p.ty;
-            if (p.toDir === 0) ny--;
-            if (p.toDir === 1) nx++;
-            if (p.toDir === 2) ny++;
-            if (p.toDir === 3) nx--;
+            if (p.toDir === 0) ny--; if (p.toDir === 1) nx++; if (p.toDir === 2) ny++; if (p.toDir === 3) nx--;
 
             if (nx < 0 || nx >= GRID || ny < 0 || ny >= GRID) {
                 p.reverse();
@@ -348,53 +574,50 @@ function update(dt) {
                 if (nextTile.getExit(enterDir) === null) {
                     p.reverse(); 
                 } else {
-                    p.tx = nx;
-                    p.ty = ny;
-                    p.fromDir = enterDir;
-                    p.progress -= 1.0;
+                    p.tx = nx; p.ty = ny; p.fromDir = enterDir; p.progress -= 1.0;
                 }
             }
         }
     });
 
-    // 激突判定
-    let pos1 = getPos(p1);
-    let pos2 = getPos(p2);
-    let dist = Math.hypot(pos1.x - pos2.x, pos1.y - pos2.y);
-    
-    if (dist < TILE_SIZE * 0.4) {
+    let pos1 = getPos(p1); let pos2 = getPos(p2);
+    if (Math.hypot(pos1.x - pos2.x, pos1.y - pos2.y) < TILE_SIZE * 0.4) {
         let sameTile = (p1.tx === p2.tx && p1.ty === p2.ty);
         let tile = board[p1.ty][p1.tx];
-        // 立体交差の安全地帯チェック
-        let overpassSafe = (sameTile && tile.type === 'overpass' && (p1.fromDir % 2 !== p2.fromDir % 2));
+        // オーバーパスとダブルカーブはすれ違い可能
+        let safe = (sameTile && (tile.type === 'overpass' || tile.type === 'double_curve') && (p1.fromDir % 2 !== p2.fromDir % 2));
         
-        if (!overpassSafe) {
+        if (!safe) {
             p1.reverse(); p1.progress += 0.05;
             p2.reverse(); p2.progress += 0.05;
         }
     }
 
-    // スコア集計
     let s1 = 0, s2 = 0;
-    board.forEach(row => row.forEach(t => {
-        if (t.owner === 1) s1++;
-        if (t.owner === 2) s2++;
-    }));
+    board.forEach(row => row.forEach(t => { if (t.owner === 1) s1++; if (t.owner === 2) s2++; }));
     scoreP1 = Math.floor((s1 / (GRID * GRID)) * 100);
     scoreP2 = Math.floor((s2 / (GRID * GRID)) * 100);
-    
     document.getElementById('score1').innerText = scoreP1;
     document.getElementById('score2').innerText = scoreP2;
 }
 
 function drawTile(ctx, tile) {
     ctx.save();
-    // アニメーション用の視覚座標と回転を適用
     ctx.translate(tile.visualX * TILE_SIZE + TILE_SIZE/2, tile.visualY * TILE_SIZE + TILE_SIZE/2);
     
-    // 背景
     ctx.fillStyle = tile.owner === 1 ? '#004444' : tile.owner === 2 ? '#440022' : '#333';
     ctx.fillRect(-TILE_SIZE/2, -TILE_SIZE/2, TILE_SIZE, TILE_SIZE);
+
+    // 必殺技のフラッシュ・エフェクト
+    let now = performance.now();
+    if (now < tile.vfxTime) {
+        let p = (tile.vfxTime - now) / 600; // 1.0 -> 0.0で減衰
+        ctx.fillStyle = `rgba(255, 255, 200, ${p})`;
+        ctx.fillRect(-TILE_SIZE/2, -TILE_SIZE/2, TILE_SIZE, TILE_SIZE);
+        ctx.strokeStyle = `rgba(255, 255, 255, ${p})`;
+        ctx.lineWidth = 15 * p;
+        ctx.strokeRect(-TILE_SIZE/2 + 2, -TILE_SIZE/2 + 2, TILE_SIZE - 4, TILE_SIZE - 4);
+    }
     
     ctx.rotate(tile.visualRotation * Math.PI / 2);
     ctx.lineWidth = 12;
@@ -403,14 +626,11 @@ function drawTile(ctx, tile) {
 
     const R = TILE_SIZE/2;
 
+    // パスを二次ベジェ曲線から「真円の弧（arc）」に変更して完璧に滑らかに
     if (tile.type === 'line') {
         ctx.beginPath(); ctx.moveTo(0, -R); ctx.lineTo(0, R); ctx.stroke();
     } else if (tile.type === 'curve') {
-        // マスの中心に向かって美しく曲がる1本道の円弧を描画
-        ctx.beginPath(); 
-        ctx.moveTo(0, -R); 
-        ctx.quadraticCurveTo(0, 0, R, 0); 
-        ctx.stroke();
+        ctx.beginPath(); ctx.arc(R, -R, R, Math.PI, Math.PI/2, true); ctx.stroke();
     } else if (tile.type === 'cross') {
         ctx.beginPath(); ctx.moveTo(0, -R); ctx.lineTo(0, R); ctx.stroke();
         ctx.beginPath(); ctx.moveTo(-R, 0); ctx.lineTo(R, 0); ctx.stroke();
@@ -424,39 +644,41 @@ function drawTile(ctx, tile) {
         ctx.beginPath(); ctx.moveTo(0, -R); ctx.lineTo(0, R); ctx.stroke();
         ctx.fillStyle = '#ffaa00';
         ctx.beginPath(); ctx.moveTo(0, -18); ctx.lineTo(-18, 12); ctx.lineTo(18, 12); ctx.fill();
+    } else if (tile.type === 'double_curve') {
+        ctx.beginPath(); ctx.arc(-R, -R, R, 0, Math.PI/2, false); ctx.stroke();
+        ctx.beginPath(); ctx.arc(R, R, R, Math.PI, Math.PI*1.5, false); ctx.stroke();
     }
     ctx.restore();
 
-    // クールダウン影と枠線（アニメーションに追従）
+    // ネオン発光ロックUI
     ctx.save();
     ctx.translate(tile.visualX * TILE_SIZE, tile.visualY * TILE_SIZE);
-    let now = performance.now();
-    if (now < tile.cooldown) {
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
-        ctx.fillRect(0, 0, TILE_SIZE, TILE_SIZE);
+    // nowは関数の上で既に取得しているのでそのまま使います
+    if (now < tile.lockUntil) {
+        let color = tile.lockedBy === 1 ? '#00ffff' : '#ff0055';
+        ctx.strokeStyle = color;
+        ctx.shadowColor = color;
+        ctx.shadowBlur = 15;
+        ctx.lineWidth = 4;
+        ctx.strokeRect(2, 2, TILE_SIZE-4, TILE_SIZE-4);
+    } else {
+        ctx.strokeStyle = '#555';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(0, 0, TILE_SIZE, TILE_SIZE);
     }
-    ctx.strokeStyle = '#555';
-    ctx.lineWidth = 1;
-    ctx.strokeRect(0, 0, TILE_SIZE, TILE_SIZE);
     ctx.restore();
 }
 
 function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
-    // 盤面
     board.forEach(row => row.forEach(t => drawTile(ctx, t)));
 
-    // コマ
     [p1, p2].forEach(p => {
         let pos = getPos(p);
-        
-        // 進行方向の角度を計算（0.01先のプログレス座標を求めて差分をとる）
         let pNext = { tx: p.tx, ty: p.ty, fromDir: p.fromDir, toDir: p.toDir, progress: p.progress + 0.01 };
         let posNext = getPos(pNext);
         let angle = Math.atan2(posNext.y - pos.y, posNext.x - pos.x);
 
-        // コマのベース（円）
         ctx.beginPath();
         ctx.arc(pos.x, pos.y, 14, 0, Math.PI * 2);
         ctx.fillStyle = p.color;
@@ -465,61 +687,40 @@ function draw() {
         ctx.lineWidth = 2.5;
         ctx.stroke();
 
-        // 進行方向の矢印
         ctx.save();
         ctx.translate(pos.x, pos.y);
         ctx.rotate(angle);
         ctx.fillStyle = '#fff';
         ctx.beginPath();
-        ctx.moveTo(8, 0);     // 矢印の先端
-        ctx.lineTo(-5, 6);    // 左後ろ
-        ctx.lineTo(-2, 0);    // 少しへこませる（戦闘機のような形）
-        ctx.lineTo(-5, -6);   // 右後ろ
+        ctx.moveTo(8, 0); ctx.lineTo(-5, 6); ctx.lineTo(-2, 0); ctx.lineTo(-5, -6);
         ctx.closePath();
         ctx.fill();
         ctx.restore();
     });
 
-    // リザルト画面
     if (gameState === 'finished') {
         ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
-        
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        
-        ctx.fillStyle = '#fff';
-        ctx.font = 'bold 48px sans-serif';
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillStyle = '#fff'; ctx.font = 'bold 48px sans-serif';
         ctx.fillText("TIME UP", canvas.width/2, canvas.height/2 - 60);
         
         ctx.font = 'bold 36px sans-serif';
         let resultMsg = "";
-        if (scoreP1 > scoreP2) {
-            ctx.fillStyle = '#00ffff';
-            resultMsg = "あなたの勝利！";
-        } else if (scoreP2 > scoreP1) {
-            ctx.fillStyle = '#ff0055';
-            resultMsg = "COMの勝利！";
-        } else {
-            ctx.fillStyle = '#fff';
-            resultMsg = "引き分け！";
-        }
+        if (scoreP1 > scoreP2) { ctx.fillStyle = '#00ffff'; resultMsg = "あなたの勝利！"; } 
+        else if (scoreP2 > scoreP1) { ctx.fillStyle = '#ff0055'; resultMsg = "COMの勝利！"; } 
+        else { ctx.fillStyle = '#fff'; resultMsg = "引き分け！"; }
         ctx.fillText(resultMsg, canvas.width/2, canvas.height/2 + 20);
-
-        ctx.font = '24px sans-serif';
-        ctx.fillStyle = '#ccc';
-        ctx.fillText("ページリロードで再挑戦", canvas.width/2, canvas.height/2 + 80);
+        ctx.font = '24px sans-serif'; ctx.fillStyle = '#ccc';
+        ctx.fillText("画面タップで設定へ戻る", canvas.width/2, canvas.height/2 + 80);
     }
 }
 
 function loop(time) {
     let dt = (time - lastTime) / 1000;
-    if (dt > 0.1) dt = 0.1; // タブ裏でのワープ防止
+    if (dt > 0.1) dt = 0.1; 
     lastTime = time;
-    
-    update(dt);
-    draw();
-    
+    update(dt); draw();
     requestAnimationFrame(loop);
 }
 
