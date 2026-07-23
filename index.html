@@ -5,43 +5,142 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>スプラバンバン</title>
     <style>
-        body { margin: 0; background: #222; color: #fff; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; user-select: none; touch-action: none; overflow: hidden; }
-        h1 { margin: 10px 0 0 0; font-size: 1.8rem; color: #fff; text-shadow: 0 0 10px #aaa; }
-        canvas { background: #333; margin-top: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.8); cursor: pointer; }
-        #ui { margin-top: 10px; display: flex; gap: 30px; font-size: 1.4rem; font-weight: bold; align-items: center; }
-        .p1 { color: #00ffff; text-shadow: 0 0 5px #00ffff; }
-        .p2 { color: #ff0055; text-shadow: 0 0 5px #ff0055; }
-        #timer { font-size: 2rem; color: #fff; background: #444; padding: 5px 15px; border-radius: 8px; box-shadow: inset 0 0 5px #000; }
-        #instructions { margin-top: 10px; font-size: 0.9rem; color: #ccc; text-align: center; line-height: 1.4; max-width: 600px; padding: 0 10px; }
-        .highlight { color: #fff; font-weight: bold; }
+        body {
+            margin: 0;
+            background: #222;
+            color: #fff;
+            font-family: sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            user-select: none;
+            touch-action: none;
+            overflow: hidden;
+        }
+        h1 {
+            margin: 10px 0 0 0;
+            font-size: 1.8rem;
+            color: #fff;
+            text-shadow: 0 0 10px #aaa;
+        }
+        /* 希望1 & 3: 背景を漆黒にし、枠にシアンとマゼンタのネオン光を付与。レールとマスの色を際立たせる */
+        canvas {
+            background: #000;
+            margin-top: 10px;
+            box-shadow: 0 4px 30px rgba(0, 255, 255, 0.2), 0 4px 30px rgba(255, 0, 85, 0.2);
+            cursor: pointer;
+            border: 1px solid #1a1a1a;
+        }
+        #ui {
+            margin-top: 10px;
+            display: flex;
+            gap: 30px;
+            font-size: 1.4rem;
+            font-weight: bold;
+            align-items: center;
+        }
+        .p1 {
+            color: #00ffff;
+            text-shadow: 0 0 5px #00ffff;
+        }
+        .p2 {
+            color: #ff0055;
+            text-shadow: 0 0 5px #ff0055;
+        }
+        #timer {
+            font-size: 2rem;
+            color: #fff;
+            background: #444;
+            padding: 5px 15px;
+            border-radius: 8px;
+            box-shadow: inset 0 0 5px #000;
+        }
+        #instructions {
+            margin-top: 10px;
+            font-size: 0.9rem;
+            color: #ccc;
+            text-align: center;
+            line-height: 1.4;
+            max-width: 600px;
+            padding: 0 10px;
+        }
+        .highlight {
+            color: #fff;
+            font-weight: bold;
+        }
+        select {
+            background: #444;
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            padding: 2px;
+        }
     </style>
 </head>
 <body>
     <h1>スプラバンバン</h1>
-    <div id="settings" style="margin-top: 5px; display: flex; gap: 15px; font-size: 0.9rem; color: #ccc; align-items: center; flex-wrap: wrap; justify-content: center;">
-        <label>盤面: <select id="gridSelect" style="background:#444; color:#fff; border:none; border-radius:4px; padding:2px;"><option value="5">5x5 (普)</option><option value="7">7x7 (広)</option><option value="9">9x9 (超)</option></select></label>
-        <label>速度: <select id="speedSelect" style="background:#444; color:#fff; border:none; border-radius:4px; padding:2px;"><option value="3.8">遅</option><option value="2.5" selected>普</option><option value="1.2">速</option></select></label>
-        <label>時間: <select id="timeSelect" style="background:#444; color:#fff; border:none; border-radius:4px; padding:2px;"><option value="60">60秒</option><option value="90" selected>90秒</option><option value="120">120秒</option></select></label>
-        <button id="shuffleBtn" style="padding: 4px 10px; cursor:pointer; background:#ffaa00; color:#000; border:none; border-radius:4px; font-weight:bold;">🎲 盤面シャッフル</button>
+    <div id="settings" style="margin-top: 5px; display: flex; gap: 10px; font-size: 0.85rem; color: #ccc; align-items: center; flex-wrap: wrap; justify-content: center; max-width: 500px;">
+        <label>盤面: 
+            <select id="gridSelect">
+                <option value="5">5x5</option>
+                <option value="7">7x7</option>
+                <option value="9">9x9</option>
+            </select>
+        </label>
+        <label>速度: 
+            <select id="speedSelect">
+                <option value="3.8">遅</option>
+                <option value="2.5" selected>普</option>
+                <option value="1.2">速</option>
+                <option value="0.6">最速</option>
+            </select>
+        </label>
+        <label>時間: 
+            <select id="timeSelect">
+                <option value="60">60秒</option>
+                <option value="90" selected>90秒</option>
+                <option value="120">120秒</option>
+            </select>
+        </label>
+        <!-- AI選択プルダウンを追加 -->
+        <label style="color:#00ffff;">P1: 
+            <select id="p1AiSelect">
+                <option value="manual" selected>あなた(手動)</option>
+                <option value="ramu">ラム(気まぐれ)</option>
+                <option value="dero">デロ(開拓者)</option>
+                <option value="sei">セイ(安全第一)</option>
+                <option value="kou">コウ(策士)</option>
+                <option value="saki" style="color:#ff00ff; font-weight:bold;">サキ(最強)</option>
+            </select>
+        </label>
+        <label style="color:#ff0055;">P2: 
+            <select id="p2AiSelect">
+                <option value="ramu">ラム(気まぐれ)</option>
+                <option value="dero">デロ(開拓者)</option>
+                <option value="sei" selected>セイ(安全第一)</option>
+                <option value="kou">コウ(策士)</option>
+                <option value="saki" style="color:#ff00ff; font-weight:bold;">サキ(最強)</option>
+            </select>
+        </label>
+        <button id="actionBtn" style="padding: 4px 10px; cursor:pointer; background:#ffaa00; color:#000; border:none; border-radius:4px; font-weight:bold;">🎲 シャッフル</button>
     </div>
     <div style="margin-top: 15px; display: flex; gap: 10px; align-items: center; justify-content: center;">
-        <button id="startBtn" style="padding: 12px 40px; cursor:pointer; background: linear-gradient(45deg, #00ffff, #0088ff); color:#000; border:none; border-radius:30px; font-size: 1.5rem; font-weight:bold; box-shadow: 0 4px 15px rgba(0, 255, 255, 0.4); transition: 0.2s;">▶ ゲームスタート</button>
-        <button id="demoBtn" style="padding: 8px 15px; cursor:pointer; background: #555; color:#fff; border:none; border-radius:20px; font-size: 0.9rem; font-weight:bold;">🤖 デモ</button>
+        <button id="startBtn" style="padding: 12px 40px; cursor:pointer; background: linear-gradient(45deg, #00ffff, #0088ff); color:#000; border:none; border-radius:30px; font-size: 1.5rem; font-weight:bold; box-shadow: 0 4px 15px rgba(0, 255, 255, 0.4); transition: 0.2s;">▶ スタート</button>
+        <button id="demoBtn" style="padding: 8px 15px; cursor:pointer; background: #555; color:#fff; border:none; border-radius:20px; font-size: 0.9rem; font-weight:bold;">🤖 デモ観戦</button>
     </div>
     <div id="records" style="font-size: 0.8rem; color: #aaa; margin-top: 10px;">
         戦績: あなた <span id="winCount1">0</span>勝 / COM <span id="winCount2">0</span>勝 / 引分 <span id="drawCount">0</span>回
-        <button id="recordResetBtn" style="margin-left: 10px; padding: 2px 5px; font-size: 0.7rem; background:#444; color:#fff; border:none; border-radius:4px; cursor:pointer;">戦績リセット</button>
+        <button id="recordResetBtn" style="margin-left: 10px; padding: 2px 5px; font-size: 0.7rem; background:#444; color:#fff; border:none; border-radius:4px; cursor:pointer;">リセット</button>
     </div>
     <div id="ui">
-        <div class="p1">あなた: <span id="score1">0</span>%</div>
+        <div class="p1">P1: <span id="score1">0</span>%</div>
         <div id="timer">90</div>
-        <div class="p2">COM: <span id="score2">0</span>%</div>
+        <div class="p2">P2: <span id="score2">0</span>%</div>
     </div>
     <canvas id="gameCanvas" width="500" height="500"></canvas>
     <div id="instructions">
-        <strong>[タップで占有]</strong>: マスを触ると1秒間<span style="color:#00ffff">青く発光</span>し、何度でも自由に回せます。<br>
-        <strong>[フリック]</strong>: 隣のマスと入れ替え。<br>
-        <span class="highlight">【必殺技】自分の色で四角く囲むと、内側が一気に塗られます！</span>
+        <strong>[タップで占有]</strong>: マスを触ると1秒間<span style="color:#00ffff">青く発光</span>し、何度でも回せます。<br>
+        <strong>[フリック]</strong>: 隣のマスと入れ替え。四角く囲むと一気塗り！
     </div>
 
 <script>
@@ -61,12 +160,7 @@ document.getElementById('gridSelect').addEventListener('change', (e) => { if(gam
 document.getElementById('speedSelect').addEventListener('change', (e) => { if(gameState === 'waiting') SPEED = parseFloat(e.target.value); });
 document.getElementById('timeSelect').addEventListener('change', (e) => { if(gameState === 'waiting') { GAME_TIME = parseInt(e.target.value); resetGame(); } });
 
-document.getElementById('shuffleBtn').addEventListener('click', () => {
-    // 待機中のみ盤面を再生成（シャッフル）可能
-    if (gameState === 'waiting') resetGame();
-});
-
-let isDemo = false; // デモモード判定フラグ
+let isDemo = false;
 
 function startGame() {
     gameState = 'playing';
@@ -76,30 +170,55 @@ function startGame() {
     SPEED = parseFloat(document.getElementById('speedSelect').value);
     
     // プレイ中は各種設定ボタン・プルダウンを操作不可（disabled）にロックする
-    document.getElementById('startBtn').innerText = '⏸ 中断(ギブアップ)';
-    document.getElementById('startBtn').style.background = 'linear-gradient(45deg, #ff0055, #ff4444)';
-    document.getElementById('startBtn').style.boxShadow = '0 4px 15px rgba(255, 0, 85, 0.4)';
-    document.getElementById('startBtn').style.color = '#fff';
+    let startBtn = document.getElementById('startBtn');
+    startBtn.innerText = '⏸ 一時停止';
+    startBtn.style.background = 'linear-gradient(45deg, #ffaa00, #ff4400)';
+    startBtn.style.boxShadow = '0 4px 15px rgba(255, 170, 0, 0.4)';
     
-    let shuffleBtn = document.getElementById('shuffleBtn');
-    shuffleBtn.style.opacity = '0.5'; shuffleBtn.disabled = true;
+    // シャッフルボタンを「ギブアップ（リセット）」に変更
+    let actionBtn = document.getElementById('actionBtn');
+    actionBtn.innerText = '🏳️ リセット';
+    actionBtn.style.background = '#ff0055';
+    actionBtn.style.color = '#fff';
+
     document.getElementById('gridSelect').disabled = true;
     document.getElementById('speedSelect').disabled = true;
     document.getElementById('timeSelect').disabled = true;
+    document.getElementById('p1AiSelect').disabled = true;
+    document.getElementById('p2AiSelect').disabled = true;
     document.getElementById('demoBtn').style.display = 'none';
 }
 
 document.getElementById('startBtn').addEventListener('click', () => {
-    if (gameState === 'waiting') {
+    if (gameState === 'finished') {
+        resetGame(); // 【修正】タイムアップ後にボタンを押すとリセットされるように変更
+    } else if (gameState === 'waiting') {
         isDemo = false;
         startGame();
     } else if (gameState === 'playing') {
-        winsP2++; updateRecords(); resetGame();
+        gameState = 'paused';
+        document.getElementById('startBtn').innerText = '▶ 再開';
+        document.getElementById('startBtn').style.background = 'linear-gradient(45deg, #00ff88, #008800)';
+        document.getElementById('startBtn').style.boxShadow = '0 4px 15px rgba(0, 255, 136, 0.4)';
+    } else if (gameState === 'paused') {
+        gameState = 'playing';
+        lastTime = performance.now(); // 時間のワープを防ぐ
+        document.getElementById('startBtn').innerText = '⏸ 一時停止';
+        document.getElementById('startBtn').style.background = 'linear-gradient(45deg, #ffaa00, #ff4400)';
+        document.getElementById('startBtn').style.boxShadow = '0 4px 15px rgba(255, 170, 0, 0.4)';
+    }
+});
+
+document.getElementById('actionBtn').addEventListener('click', () => {
+    if (gameState === 'waiting') {
+        resetGame(); // シャッフル
+    } else if (gameState === 'playing' || gameState === 'paused') {
+        resetGame(); // ギブアップ（初期化）
     }
 });
 
 document.getElementById('demoBtn').addEventListener('click', () => {
-    if (gameState === 'waiting') {
+    if (gameState === 'waiting' || gameState === 'finished') {
         isDemo = true;
         startGame();
     }
@@ -153,7 +272,7 @@ class Tile {
             if (localIn === 2) localOut = 0;
         } else if (this.type === 'curve') {
             if (localIn === 0) localOut = 1;
-            if (localIn === 1) localOut = 0;
+            if (localIn === 1) localOut = 0; // タイポ（LocalOut、括弧不足）を修正
         } else if (this.type === 'cross' || this.type === 'overpass') {
             localOut = (localIn + 2) % 4;
         } else if (this.type === 'oneway') {
@@ -163,7 +282,7 @@ class Tile {
             if (localIn === 0) localOut = 3;
             if (localIn === 3) localOut = 0;
             if (localIn === 1) localOut = 2;
-            if (localIn === 2) localOut = 1;
+            if (localIn === 2) localOut = 1; // 比較対象（2）の抜け、括弧不足を修正
         }
         if (localOut === null) return null;
         return (localOut + this.rotation) % 4;
@@ -190,7 +309,7 @@ class Player {
     }
 }
 
-let gameState = 'playing'; 
+let gameState = 'waiting'; 
 let timeLeft = GAME_TIME;
 let board = [];
 let p1, p2;
@@ -235,21 +354,21 @@ function resetGame() {
     
     // UIボタンのリセット
     let startBtn = document.getElementById('startBtn');
-    if(startBtn) {
-        startBtn.innerText = '▶ ゲームスタート';
-        startBtn.style.background = 'linear-gradient(45deg, #00ffff, #0088ff)';
-        startBtn.style.boxShadow = '0 4px 15px rgba(0, 255, 255, 0.4)';
-        startBtn.style.color = '#000';
-    }
-    let shuffleBtn = document.getElementById('shuffleBtn');
-    if(shuffleBtn) { shuffleBtn.style.opacity = '1.0'; shuffleBtn.disabled = false; }
+    startBtn.innerText = '▶ スタート';
+    startBtn.style.background = 'linear-gradient(45deg, #00ffff, #0088ff)';
+    startBtn.style.boxShadow = '0 4px 15px rgba(0, 255, 255, 0.4)';
+    
+    let actionBtn = document.getElementById('actionBtn');
+    actionBtn.innerText = '🎲 シャッフル';
+    actionBtn.style.background = '#ffaa00';
+    actionBtn.style.color = '#000';
     
     document.getElementById('gridSelect').disabled = false;
     document.getElementById('speedSelect').disabled = false;
     document.getElementById('timeSelect').disabled = false;
-    
-    let demoBtn = document.getElementById('demoBtn');
-    if(demoBtn) demoBtn.style.display = 'block';
+    document.getElementById('p1AiSelect').disabled = false;
+    document.getElementById('p2AiSelect').disabled = false;
+    document.getElementById('demoBtn').style.display = 'block';
 }
 resetGame();
 
@@ -272,6 +391,7 @@ window.addEventListener('mouseup', handleEnd);
 window.addEventListener('touchend', handleEnd);
 
 function handleStart(e) {
+    if (gameState === 'finished') { resetGame(); return; } // TIME UP後にクリックで設定へリセット
     if (gameState !== 'playing') return;
     let pos = getGridCoord(e);
     if (pos.x < 0 || pos.x >= GRID || pos.y < 0 || pos.y >= GRID) return;
@@ -321,7 +441,7 @@ function handleEnd(e) {
                     
                     startTile.lockedBy = 1; startTile.lockUntil = now + 1000;
                     targetTile.lockedBy = 1; targetTile.lockUntil = now + 1000;
-                    // フリックによって色の配置が変化したため、ここで囲み判定を実行
+                    // フリックによって色の配置が変化したため、囲み判定を実行
                     checkEncirclement();
                 }
             }
@@ -331,13 +451,12 @@ function handleEnd(e) {
         rotateTileLogic(startTile, 1);
         startTile.lockedBy = 1;
         startTile.lockUntil = now + 1000; 
-        // ※回転させた瞬間は盤面の色の配置が一切変わらないため、囲み判定は行わない
     }
     startPos = null;
     startTile = null;
 }
 
-// 必殺技：最大連結成分判定を用いた「囲碁式」の囲み判定（盤面の端も壁として機能）
+// 必殺技：最大連結成分判定を用いた「囲碁式」の囲み判定
 function getEnclosedTiles(pId) {
     let visited = Array.from({length: GRID}, () => Array(GRID).fill(false));
     let components = [];
@@ -377,7 +496,7 @@ function getEnclosedTiles(pId) {
         if (comp.length > maxSize) maxSize = comp.length;
     }
 
-    // 「外側の世界」より小さいグループはすべて「壁やマスで完全に切り取られた領域」とみなす
+    // 「外側の世界」より小さいグループはすべて「完全に切り取られた領域」とみなす
     let enclosed = [];
     for (let comp of components) {
         if (comp.length < maxSize) {
@@ -408,49 +527,251 @@ function checkEncirclement() {
     }
 }
 
-// COM（AI）の共通思考ルーチン
+// --- COM（AI）思考ルーチン（完全仕様版：バグ解消・シャッフル・サキ＆コウ特化・ラム限定ランダム） ---
+
+function getNextTileCoord(tx, ty, toDir) {
+    let nx = tx, ny = ty;
+    if (toDir === 0) ny--; if (toDir === 1) nx++; if (toDir === 2) ny++; if (toDir === 3) nx--;
+    return {nx, ny};
+}
+
+// 拡張安全シミュレーション（内部の道だけでなく、出口が壁になっていないかも厳密にチェック）
+function checkSimulateSafe(tile, enterDir, diff) {
+    if (!tile) return false;
+    let tempRot = (tile.rotation + diff) % 4;
+    let localIn = (enterDir - tempRot + 4) % 4;
+    let localOut = null;
+    if (tile.type === 'line') { if (localIn === 0) localOut = 2; if (localIn === 2) localOut = 0; }
+    else if (tile.type === 'curve') { if (localIn === 0) localOut = 1; if (localIn === 1) localOut = 0; }
+    else if (tile.type === 'cross' || tile.type === 'overpass') { localOut = (localIn + 2) % 4; }
+    else if (tile.type === 'oneway') { if (localIn === 2) localOut = 0; }
+    else if (tile.type === 'double_curve') {
+        if (localIn === 0) localOut = 3; if (localIn === 3) localOut = 0;
+        if (localIn === 1) localOut = 2; if (localIn === 2) localOut = 1;
+    }
+    if (localOut === null) return false;
+
+    // 出口が盤面外（壁）なら不合格
+    let exitDir = (localOut + tempRot) % 4;
+    let nx = tile.x, ny = tile.y;
+    if (exitDir === 0) ny--; else if (exitDir === 1) nx++; else if (exitDir === 2) ny++; else if (exitDir === 3) nx--;
+    if (nx < 0 || nx >= GRID || ny < 0 || ny >= GRID) return false;
+
+    return true;
+}
+
+function aiDoFlick(t1, t2, pId, now) {
+    let tempType = t1.type; let tempRot = t1.rotation; let tempOwner = t1.owner;
+    let tempVx = t1.visualX; let tempVy = t1.visualY; let tempVr = t1.visualRotation;
+    t1.type = t2.type; t1.rotation = t2.rotation; t1.owner = t2.owner;
+    t1.visualX = t2.visualX; t1.visualY = t2.visualY; t1.visualRotation = t2.visualRotation;
+    t2.type = tempType; t2.rotation = tempRot; t2.owner = tempOwner;
+    t2.visualX = tempVx; t2.visualY = tempVy; t2.visualRotation = tempVr;
+    t1.lockedBy = pId; t1.lockUntil = now + 1000;
+    t2.lockedBy = pId; t2.lockUntil = now + 1000;
+    checkEncirclement();
+}
+
 function thinkAI(player, opponent, now) {
     if (now < player.cooldown) return;
     
-    let candidates = [];
-    let centerTx = player.tx, centerTy = player.ty;
-    let r = Math.random();
-    
-    if (r < 0.6) {
-        // 60%: 自分の周囲（メイン）を中心に触る
-        centerTx = player.tx; centerTy = player.ty;
-    } else if (r < 0.85) {
-        // 25%: 相手の周囲（妨害）を中心に触る
-        centerTx = opponent.tx; centerTy = opponent.ty;
+    let aiType = player.id === 1 ? document.getElementById('p1AiSelect').value : document.getElementById('p2AiSelect').value;
+    if (isDemo && player.id === 1 && aiType === 'manual') aiType = 'saki';
+    if (!isDemo && player.id === 1 && aiType === 'manual') return;
+
+    // 【バグ修正】自分が過去に触ったマスのロック麻痺呪縛を完全解消
+    const canRotate = (t) => t && !(now < t.lockUntil && t.lockedBy === opponent.id) && !isOccupied(t.x, t.y);
+    const canRotateEscape = (t) => t && !(now < t.lockUntil && t.lockedBy === opponent.id) && !(opponent.tx === t.x && opponent.ty === t.y);
+
+    let target = null;
+    let rotCount = 0;
+    let flickTarget = null;
+
+    let enterDir = (player.toDir + 2) % 4;
+    let nextCoord = getNextTileCoord(player.tx, player.ty, player.toDir);
+    let nextTile = (nextCoord.nx >= 0 && nextCoord.nx < GRID && nextCoord.ny >= 0 && nextCoord.ny < GRID) ? board[nextCoord.ny][nextCoord.nx] : null;
+    let currentTile = board[player.ty][player.tx];
+
+    // 配列のシャッフル（回転角・方向用）
+    const getShuffledArray = (arr) => {
+        for (let i = arr.length - 1; i > 0; i--) { let j = Math.floor(Math.random() * (i + 1)); [arr[i], arr[j]] = [arr[j], arr[i]]; }
+        return arr;
+    };
+
+    let isDanger = false;
+    if (!nextTile) {
+        isDanger = true;
     } else {
-        // 15%: 完全にランダムな場所を触る
-        centerTx = Math.floor(Math.random() * GRID);
-        centerTy = Math.floor(Math.random() * GRID);
+        let exit = nextTile.getExit(enterDir);
+        // 【修正】壁に向かう道も危険とみなす
+        if (exit === null || !checkSimulateSafe(nextTile, enterDir, 0)) isDanger = true;
     }
 
-    // ターゲット中心から3x3の範囲を操作候補にする
-    for (let y = centerTy - 1; y <= centerTy + 1; y++) {
-        for (let x = centerTx - 1; x <= centerTx + 1; x++) {
-            if (x >= 0 && x < GRID && y >= 0 && y < GRID) {
-                let t = board[y][x];
-                if (now >= t.lockUntil || t.lockedBy === player.id) {
-                    candidates.push(t);
+    // --- 危機回避ルーチン ---
+    const tryRotateNext = () => {
+        if (nextTile && canRotate(nextTile)) {
+            let rots = getShuffledArray([1, 2, 3]);
+            for (let r of rots) {
+                if (checkSimulateSafe(nextTile, enterDir, r)) { target = nextTile; rotCount = r; return true; }
+            }
+        }
+        return false;
+    };
+
+    const tryEscape = () => {
+        if (canRotateEscape(currentTile)) {
+            let rots = getShuffledArray([1, 2, 3]);
+            for (let r of rots) {
+                // 足元を回すと、自分も一緒に回る物理演算
+                let newToDir = (player.toDir + r) % 4; 
+                let escCoord = getNextTileCoord(player.tx, player.ty, newToDir);
+                if (escCoord.nx >= 0 && escCoord.nx < GRID && escCoord.ny >= 0 && escCoord.ny < GRID) {
+                    let escTile = board[escCoord.ny][escCoord.nx];
+                    let escEnterDir = (newToDir + 2) % 4;
+                    // 回避先のマスが繋がっていて、かつ相手がロックして跳ね返される状態ではないか、出口は安全か
+                    if (escTile.getExit(escEnterDir) !== null && checkSimulateSafe(escTile, escEnterDir, 0) && !(now < escTile.lockUntil && escTile.lockedBy === opponent.id)) {
+                        target = currentTile; rotCount = r; return true;
+                    }
+                }
+            }
+        }
+        return false;
+    };
+
+    const tryFlickSolve = () => {
+        if (!nextTile || !canRotate(nextTile)) return false;
+        let dirs = getShuffledArray([[0,-1],[1,0],[0,1],[-1,0]]);
+        for (let d of dirs) {
+            let fx = nextTile.x + d[0], fy = nextTile.y + d[1];
+            if (fx >= 0 && fx < GRID && fy >= 0 && fy < GRID && !(fx === currentTile.x && fy === currentTile.y)) {
+                let candTile = board[fy][fx];
+                if (canRotate(candTile)) {
+                    if (checkSimulateSafe(candTile, enterDir, 0)) {
+                        flickTarget = {t1: nextTile, t2: candTile};
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    };
+
+    if (isDanger && aiType !== 'ramu') {
+        let solved = false;
+        let timeBuffer = (1.0 - player.progress) * (2.5 / SPEED); 
+
+        if (aiType === 'saki' || aiType === 'kou') {
+            let tryFlickFirst = Math.random() < 0.5;
+            if (tryFlickFirst) {
+                if (timeBuffer > 0.5) solved = tryFlickSolve();
+                if (!solved) solved = tryRotateNext();
+                if (!solved) solved = tryEscape();
+            } else {
+                solved = tryRotateNext();
+                if (!solved && timeBuffer > 0.5) solved = tryFlickSolve();
+                if (!solved) solved = tryEscape();
+            }
+        } else {
+            solved = tryRotateNext();
+            if (!solved) solved = tryEscape();
+        }
+    }
+
+    // --- 通常行動ルーチン（陣地拡大・コウのくぼみ狙い・ラムの範囲限定） ---
+    if (!target && !flickTarget && aiType !== 'sei') {
+        
+        // ラム（気まぐれ）：自分または相手の周囲(3x3)に限定してランダム操作
+        if (aiType === 'ramu') {
+            let targetCenter = Math.random() < 0.5 ? player : opponent;
+            let cands = [];
+            for (let y = Math.max(0, targetCenter.ty - 1); y <= Math.min(GRID - 1, targetCenter.ty + 1); y++) {
+                for (let x = Math.max(0, targetCenter.tx - 1); x <= Math.min(GRID - 1, targetCenter.tx + 1); x++) {
+                    if (canRotate(board[y][x])) cands.push(board[y][x]);
+                }
+            }
+            if (cands.length > 0) {
+                target = cands[Math.floor(Math.random() * cands.length)];
+                rotCount = getShuffledArray([1, 2, 3])[0];
+            }
+        } 
+        // サキ、コウ、デロの通常行動
+        else {
+            // コウ・サキ専用：境界線やフリックによる盤面荒らし
+            if ((aiType === 'saki' || aiType === 'kou') && Math.random() < 0.25) {
+                let cands = [];
+                for (let i=0; i<6; i++) {
+                    let rx = Math.floor(Math.random() * (GRID - 1)), ry = Math.floor(Math.random() * GRID);
+                    let t1 = board[ry][rx], t2 = board[ry][rx+1];
+                    if (canRotate(t1) && canRotate(t2)) {
+                        if (aiType === 'kou' && (t1.owner !== player.id || t2.owner !== player.id)) cands.push({t1, t2});
+                        else if (aiType === 'saki') cands.push({t1, t2});
+                    }
+                }
+                if (cands.length > 0) flickTarget = cands[Math.floor(Math.random() * cands.length)];
+            }
+
+            if (!flickTarget) {
+                let cands = [];
+                // 候補集め（サキは自分の色以外を厳選、デロ・コウは確率で自陣も許容）
+                for (let y = 0; y < GRID; y++) {
+                    for (let x = 0; x < GRID; x++) {
+                        let t = board[y][x];
+                        
+                        // 【バグ修正】自分がこれから進む予定の「安全なルート」は、陣地取りで破壊しないように除外
+                        if (t === nextTile && !isDanger) continue;
+
+                        if (canRotate(t)) {
+                            let isNotMyColor = (t.owner !== player.id);
+                            if (aiType === 'saki') {
+                                if (isNotMyColor) cands.push(t);
+                            } else {
+                                // デロ・コウ：80%で非自陣、20%で自陣も許容（ミラーリング防止の隙）
+                                if (isNotMyColor || Math.random() < 0.2) cands.push(t);
+                            }
+                        }
+                    }
+                }
+
+                if (cands.length > 0) {
+                    if (aiType === 'kou') {
+                        // 【コウ専用】：周辺の自分の色の多さ（くぼみ具合）をスコア化して最も囲みやすいマスを優先
+                        cands.sort((a, b) => {
+                            let scoreA = 0, scoreB = 0;
+                            const countFriends = (tile) => {
+                                let cnt = 0;
+                                let dirs = [[0,-1],[1,0],[0,1],[-1,0]];
+                                for (let d of dirs) {
+                                    let nx = tile.x + d[0], ny = tile.y + d[1];
+                                    if (nx >= 0 && nx < GRID && ny >= 0 && ny < GRID) {
+                                        if (board[ny][nx].owner === player.id) cnt++;
+                                    }
+                                }
+                                return cnt;
+                            };
+                            return countFriends(b) - countFriends(a); // 友好的な隣接数が多い順にソート
+                        });
+                        target = cands[0]; // 最もくぼみに位置するマスを選択
+                    } else {
+                        target = cands[Math.floor(Math.random() * cands.length)];
+                    }
+                    rotCount = getShuffledArray([1, 2, 3])[0];
                 }
             }
         }
     }
 
-    // 候補の中からランダムに1つ選び、回転角も90度〜270度（1〜3回）からランダムにする
-    if (candidates.length > 0) {
-        let target = candidates[Math.floor(Math.random() * candidates.length)];
-        let rotCount = Math.floor(Math.random() * 3) + 1; // 1回(90度), 2回(180度), 3回(270度)
+    // --- アクションの実行 ---
+    if (flickTarget) {
+        aiDoFlick(flickTarget.t1, flickTarget.t2, player.id, now);
+    } else if (target && rotCount > 0) {
         rotateTileLogic(target, rotCount);
         target.lockedBy = player.id;
         target.lockUntil = now + 1000;
     }
     
-    // 速度設定(SPEED)に合わせてAIの行動間隔も速くする
+    // 思考遅延（サキは一段階速い）
     let baseDelay = 1200 / (SPEED / 2.5);
+    if (aiType === 'saki') baseDelay *= 0.6; 
     player.cooldown = now + baseDelay + Math.random() * 500;
 }
 
@@ -458,9 +779,8 @@ function thinkAI(player, opponent, now) {
 setInterval(() => {
     if (gameState !== 'playing') return;
     let now = performance.now();
-    
-    thinkAI(p2, p1, now); // COMの行動
-    if (isDemo) thinkAI(p1, p2, now); // デモモード時はプレイヤー側もAI操作
+    thinkAI(p2, p1, now); 
+    thinkAI(p1, p2, now); 
 }, 150); 
 
 // --- 座標計算と描画 ---
@@ -512,8 +832,7 @@ function getPos(p) {
 let scoreP1 = 0; let scoreP2 = 0;
 
 function update(dt) {
-    if (gameState !== 'playing') return;
-
+    // 描画補間は一時停止中でも実行（アニメーションを滑らかに終わらせる）
     board.forEach(row => row.forEach(t => {
         t.visualX += (t.x - t.visualX) * 15 * dt;
         t.visualY += (t.y - t.visualY) * 15 * dt;
@@ -523,8 +842,10 @@ function update(dt) {
         t.visualRotation += rDiff * 15 * dt;
     }));
 
+    if (gameState !== 'playing') return; // プレイ中以外は時間を進めない
+
     timeLeft -= dt;
-    if (timeLeft <= 0 && gameState === 'playing') {
+    if (timeLeft <= 0) {
         timeLeft = 0; 
         gameState = 'finished'; 
         
@@ -534,13 +855,8 @@ function update(dt) {
         else draws++;
         updateRecords();
         
-        // リザルト確認後、画面タップで設定へ戻るリスナーを登録
-        canvas.addEventListener('click', function onResultClick() {
-            if (gameState === 'finished') {
-                canvas.removeEventListener('click', onResultClick);
-                resetGame();
-            }
-        });
+        // TIME UP後にスタートボタンを「設定に戻る」に変更
+        document.getElementById('startBtn').innerText = '設定に戻る';
     }
     document.getElementById('timer').innerText = Math.ceil(timeLeft);
 
@@ -552,7 +868,7 @@ function update(dt) {
             let tile = board[p.ty][p.tx];
             if (tile.owner !== p.id) {
                 tile.owner = p.id;
-                checkEncirclement(); // 塗るたびに必殺技チェック
+                checkEncirclement(); // 塗るたびに囲み判定チェック
             }
         }
 
@@ -607,66 +923,112 @@ function drawTile(ctx, tile) {
     ctx.save();
     ctx.translate(tile.visualX * TILE_SIZE + TILE_SIZE/2, tile.visualY * TILE_SIZE + TILE_SIZE/2);
     
-    ctx.fillStyle = tile.owner === 1 ? '#004444' : tile.owner === 2 ? '#440022' : '#333';
+    // 希望3: 塗られたマスは、色がつかないとわかりにくい -> はっきりした色（以前の色）に戻す
+    let isP1 = tile.owner === 1;
+    let isP2 = tile.owner === 2;
+    ctx.fillStyle = isP1 ? '#004444' : isP2 ? '#440022' : '#222'; // 以前の色を参考にはっきりさせる。未占有は少しグレーに。 CSSの背景色は真っ黒にしたので。
     ctx.fillRect(-TILE_SIZE/2, -TILE_SIZE/2, TILE_SIZE, TILE_SIZE);
 
     // 必殺技のフラッシュ・エフェクト
     let now = performance.now();
     if (now < tile.vfxTime) {
         let p = (tile.vfxTime - now) / 600; // 1.0 -> 0.0で減衰
-        ctx.fillStyle = `rgba(255, 255, 200, ${p})`;
+        ctx.fillStyle = `rgba(255, 255, 200, ${p * 0.5})`;
         ctx.fillRect(-TILE_SIZE/2, -TILE_SIZE/2, TILE_SIZE, TILE_SIZE);
-        ctx.strokeStyle = `rgba(255, 255, 255, ${p})`;
-        ctx.lineWidth = 15 * p;
-        ctx.strokeRect(-TILE_SIZE/2 + 2, -TILE_SIZE/2 + 2, TILE_SIZE - 4, TILE_SIZE - 4);
     }
     
     ctx.rotate(tile.visualRotation * Math.PI / 2);
-    ctx.lineWidth = 12;
-    ctx.lineCap = 'round';
-    ctx.strokeStyle = '#888'; 
+
+    // 希望2: 自分がいるますのレールだけネオン発光。離脱したら元に戻る。
+    // 希望1: レールが見えにくくなった -> 明るいグレー（以前の色）に戻す
+    const drawPipe = (pathFunc) => {
+        ctx.lineCap = 'round';
+        
+        // 滞在判定
+        let occupyingP1 = (tile.x === p1.tx && tile.y === p1.ty);
+        let occupyingP2 = (tile.x === p2.tx && tile.y === p2.ty);
+        let currentOccupant = occupyingP1 ? 1 : occupyingP2 ? 2 : 0;
+
+        if (currentOccupant !== 0) {
+            // 希望2: 自分がいるマスのレールだけネオン発光 (滞在プレイヤーの色、強烈)
+            let color = currentOccupant === 1 ? '#00ffff' : '#ff0055';
+            ctx.shadowBlur = 20; // 強く
+            ctx.shadowColor = color;
+            ctx.lineWidth = 14;
+            ctx.strokeStyle = color;
+            pathFunc();
+            // コア（中心の白い光）
+            ctx.shadowBlur = 0;
+            ctx.lineWidth = 5;
+            ctx.strokeStyle = '#ffffff';
+            pathFunc();
+        } else if (tile.owner !== 0) {
+            // 希望2: 離脱したらレールは元の色に戻る (占有済みならそのオーナーの色、セイ・コウの予測にも使う)
+            let color = isP1 ? '#00ffff' : '#ff0055';
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = color;
+            ctx.lineWidth = 14;
+            ctx.strokeStyle = color;
+            pathFunc();
+            // コア
+            ctx.shadowBlur = 0;
+            ctx.lineWidth = 5;
+            ctx.strokeStyle = '#ffffff';
+            pathFunc();
+        } else {
+            // 希望1: 未占有・未滞在のレール -> 見えにくいので以前の明るいグレーに戻す
+            ctx.shadowBlur = 0;
+            ctx.lineWidth = 12; // 以前の太さ
+            ctx.strokeStyle = '#888'; // 以前の明るいグレー
+            pathFunc();
+        }
+    };
 
     const R = TILE_SIZE/2;
 
-    // パスを二次ベジェ曲線から「真円の弧（arc）」に変更して完璧に滑らかに
+    // パス描画
     if (tile.type === 'line') {
-        ctx.beginPath(); ctx.moveTo(0, -R); ctx.lineTo(0, R); ctx.stroke();
+        drawPipe(() => { ctx.beginPath(); ctx.moveTo(0, -R); ctx.lineTo(0, R); ctx.stroke(); });
     } else if (tile.type === 'curve') {
-        ctx.beginPath(); ctx.arc(R, -R, R, Math.PI, Math.PI/2, true); ctx.stroke();
+        drawPipe(() => { ctx.beginPath(); ctx.arc(R, -R, R, Math.PI, Math.PI/2, true); ctx.stroke(); });
     } else if (tile.type === 'cross') {
-        ctx.beginPath(); ctx.moveTo(0, -R); ctx.lineTo(0, R); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(-R, 0); ctx.lineTo(R, 0); ctx.stroke();
+        drawPipe(() => { 
+            ctx.beginPath(); ctx.moveTo(0, -R); ctx.lineTo(0, R); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(-R, 0); ctx.lineTo(R, 0); ctx.stroke(); 
+        });
     } else if (tile.type === 'overpass') {
-        ctx.beginPath(); ctx.moveTo(0, -R); ctx.lineTo(0, R); ctx.stroke();
-        ctx.lineWidth = 18; ctx.strokeStyle = tile.owner === 1 ? '#004444' : tile.owner === 2 ? '#440022' : '#333';
-        ctx.beginPath(); ctx.moveTo(-R, 0); ctx.lineTo(R, 0); ctx.stroke(); 
-        ctx.lineWidth = 12; ctx.strokeStyle = '#bbb'; 
+        // 立体交差：下になる管を描いてから、黒い影で分断し、上の管を描く（2Dでの擬似3D表現）
+        drawPipe(() => { ctx.beginPath(); ctx.moveTo(0, -R); ctx.lineTo(0, R); ctx.stroke(); });
+        
+        ctx.shadowBlur = 10; ctx.shadowColor = '#000';
+        ctx.lineWidth = 20; ctx.strokeStyle = '#000'; // 下の管を黒でぶった切る
         ctx.beginPath(); ctx.moveTo(-R, 0); ctx.lineTo(R, 0); ctx.stroke();
+        ctx.shadowBlur = 0;
+        
+        drawPipe(() => { ctx.beginPath(); ctx.moveTo(-R, 0); ctx.lineTo(R, 0); ctx.stroke(); });
     } else if (tile.type === 'oneway') {
-        ctx.beginPath(); ctx.moveTo(0, -R); ctx.lineTo(0, R); ctx.stroke();
+        drawPipe(() => { ctx.beginPath(); ctx.moveTo(0, -R); ctx.lineTo(0, R); ctx.stroke(); });
+        // 発光する矢印（視認性を高めるため、進行方向を常に黄色系ネオンで表示）
         ctx.fillStyle = '#ffaa00';
-        ctx.beginPath(); ctx.moveTo(0, -18); ctx.lineTo(-18, 12); ctx.lineTo(18, 12); ctx.fill();
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = '#ffaa00';
+        ctx.beginPath(); ctx.moveTo(0, -14); ctx.lineTo(-12, 10); ctx.lineTo(12, 10); ctx.fill();
     } else if (tile.type === 'double_curve') {
-        ctx.beginPath(); ctx.arc(-R, -R, R, 0, Math.PI/2, false); ctx.stroke();
-        ctx.beginPath(); ctx.arc(R, R, R, Math.PI, Math.PI*1.5, false); ctx.stroke();
+        drawPipe(() => { ctx.beginPath(); ctx.arc(-R, -R, R, 0, Math.PI/2, false); ctx.stroke(); });
+        drawPipe(() => { ctx.beginPath(); ctx.arc(R, R, R, Math.PI, Math.PI*1.5, false); ctx.stroke(); });
     }
     ctx.restore();
 
-    // ネオン発光ロックUI
+    // ロック中UI（青く発光）
     ctx.save();
     ctx.translate(tile.visualX * TILE_SIZE, tile.visualY * TILE_SIZE);
-    // nowは関数の上で既に取得しているのでそのまま使います
     if (now < tile.lockUntil) {
         let color = tile.lockedBy === 1 ? '#00ffff' : '#ff0055';
         ctx.strokeStyle = color;
         ctx.shadowColor = color;
-        ctx.shadowBlur = 15;
-        ctx.lineWidth = 4;
-        ctx.strokeRect(2, 2, TILE_SIZE-4, TILE_SIZE-4);
-    } else {
-        ctx.strokeStyle = '#555';
-        ctx.lineWidth = 1;
-        ctx.strokeRect(0, 0, TILE_SIZE, TILE_SIZE);
+        ctx.shadowBlur = 10;
+        ctx.lineWidth = 2;
+        ctx.strokeRect(1, 1, TILE_SIZE-2, TILE_SIZE-2);
     }
     ctx.restore();
 }
@@ -687,7 +1049,11 @@ function draw() {
         ctx.fill();
         ctx.strokeStyle = '#fff';
         ctx.lineWidth = 2.5;
+        // キャラクター自体の光
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = p.color;
         ctx.stroke();
+        ctx.shadowBlur = 0; // 他の描画に影響しないよう戻す
 
         ctx.save();
         ctx.translate(pos.x, pos.y);
@@ -701,7 +1067,7 @@ function draw() {
     });
 
     if (gameState === 'finished') {
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
         ctx.fillStyle = '#fff'; ctx.font = 'bold 48px sans-serif';
@@ -709,9 +1075,9 @@ function draw() {
         
         ctx.font = 'bold 36px sans-serif';
         let resultMsg = "";
-        if (scoreP1 > scoreP2) { ctx.fillStyle = '#00ffff'; resultMsg = "あなたの勝利！"; } 
-        else if (scoreP2 > scoreP1) { ctx.fillStyle = '#ff0055'; resultMsg = "COMの勝利！"; } 
-        else { ctx.fillStyle = '#fff'; resultMsg = "引き分け！"; }
+        if (scoreP1 > scoreP2) { ctx.fillStyle = '#00ffff'; resultMsg = "P1 WIN!"; } 
+        else if (scoreP2 > scoreP1) { ctx.fillStyle = '#ff0055'; resultMsg = "P2 WIN!"; } 
+        else { ctx.fillStyle = '#fff'; resultMsg = "DRAW"; }
         ctx.fillText(resultMsg, canvas.width/2, canvas.height/2 + 20);
         ctx.font = '24px sans-serif'; ctx.fillStyle = '#ccc';
         ctx.fillText("画面タップで設定へ戻る", canvas.width/2, canvas.height/2 + 80);
