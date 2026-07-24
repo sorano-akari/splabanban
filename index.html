@@ -93,6 +93,7 @@
                 <option value="2.5" selected>普</option>
                 <option value="1.2">速</option>
                 <option value="0.6">最速</option>
+                <option value="0.1" style="color:#ffcc00; font-weight:bold;">⚡超絶早送り(検証用)</option>
             </select>
         </label>
         <label>時間: 
@@ -110,7 +111,8 @@
                 <option value="dero">デロ(開拓者)</option>
                 <option value="sei">セイ(安全第一)</option>
                 <option value="kou">コウ(策士)</option>
-                <option value="saki" style="color:#ff00ff; font-weight:bold;">サキ(最強)</option>
+                <option value="saki" style="color:#ff00ff; font-weight:bold;">サキ(堅実)</option>
+                <option value="chou" style="color:#ffcc00; font-weight:bold;">チョウ(頂点)</option>
             </select>
         </label>
         <label style="color:#ff0055;">P2: 
@@ -119,7 +121,8 @@
                 <option value="dero">デロ(開拓者)</option>
                 <option value="sei" selected>セイ(安全第一)</option>
                 <option value="kou">コウ(策士)</option>
-                <option value="saki" style="color:#ff00ff; font-weight:bold;">サキ(最強)</option>
+                <option value="saki" style="color:#ff00ff; font-weight:bold;">サキ(堅実)</option>
+                <option value="chou" style="color:#ffcc00; font-weight:bold;">チョウ(頂点)</option>
             </select>
         </label>
         <button id="actionBtn" style="padding: 4px 10px; cursor:pointer; background:#ffaa00; color:#000; border:none; border-radius:4px; font-weight:bold;">🎲 シャッフル</button>
@@ -391,7 +394,12 @@ window.addEventListener('mouseup', handleEnd);
 window.addEventListener('touchend', handleEnd);
 
 function handleStart(e) {
-    if (gameState === 'finished') { resetGame(); return; } // TIME UP後にクリックで設定へリセット
+    if (gameState === 'finished') { 
+        // 終了画面タップで「同じ条件で即再戦」
+        resetGame();
+        startGame();
+        return; 
+    }
     if (gameState !== 'playing') return;
     let pos = getGridCoord(e);
     if (pos.x < 0 || pos.x >= GRID || pos.y < 0 || pos.y >= GRID) return;
@@ -439,8 +447,9 @@ function handleEnd(e) {
                     targetTile.type = tempType; targetTile.rotation = tempRot; targetTile.owner = tempOwner;
                     targetTile.visualX = tempVx; targetTile.visualY = tempVy; targetTile.visualRotation = tempVr;
                     
-                    startTile.lockedBy = 1; startTile.lockUntil = now + 1000;
-                    targetTile.lockedBy = 1; targetTile.lockUntil = now + 1000;
+                    let speedRatio = SPEED / 2.5;
+                    startTile.lockedBy = 1; startTile.lockUntil = now + (1000 * speedRatio);
+                    targetTile.lockedBy = 1; targetTile.lockUntil = now + (1000 * speedRatio);
                     // フリックによって色の配置が変化したため、囲み判定を実行
                     checkEncirclement();
                 }
@@ -448,9 +457,10 @@ function handleEnd(e) {
         }
     } else {
         // クリック（占有＆回転：1秒の猶予があるため時計回りに固定）
+        let speedRatio = SPEED / 2.5;
         rotateTileLogic(startTile, 1);
         startTile.lockedBy = 1;
-        startTile.lockUntil = now + 1000; 
+        startTile.lockUntil = now + (1000 * speedRatio); 
     }
     startPos = null;
     startTile = null;
@@ -535,7 +545,7 @@ function getNextTileCoord(tx, ty, toDir) {
     return {nx, ny};
 }
 
-// 拡張安全シミュレーション（内部の道だけでなく、出口が壁になっていないかも厳密にチェック）
+// 拡張安全シミュレーション
 function checkSimulateSafe(tile, enterDir, diff) {
     if (!tile) return false;
     let tempRot = (tile.rotation + diff) % 4;
@@ -551,24 +561,49 @@ function checkSimulateSafe(tile, enterDir, diff) {
     }
     if (localOut === null) return false;
 
-    // 出口が盤面外（壁）なら不合格
     let exitDir = (localOut + tempRot) % 4;
+
     let nx = tile.x, ny = tile.y;
     if (exitDir === 0) ny--; else if (exitDir === 1) nx++; else if (exitDir === 2) ny++; else if (exitDir === 3) nx--;
+    
+    // 盤面外に出る場合は反射されるので危険
     if (nx < 0 || nx >= GRID || ny < 0 || ny >= GRID) return false;
+
+    // 次のマス（2手先）に入った際、接続先が存在するか（壁ドン反射されないか）をチェック
+    let nextEnterDir = (exitDir + 2) % 4;
+    let nextTile = board[ny][nx];
+    
+    // 【修正】2手先のマスが「現在自分が乗っているマス」だった場合は逆流になるため、出口チェックを免除する
+    // （自分がそこに到達する時には既に状況が変わっているため）
+    // また、自分が回せるマス（相手にロックされていないマス）であれば、後で回せばいいので「安全」とみなす
+    let now = performance.now();
+    let isCurrentTile = false;
+    // 呼び出し元のスコープからプレイヤーの現在位置を取得（簡易的）
+    let currentOccupant = p1.tx === tile.x && p1.ty === tile.y ? p1 : p2.tx === tile.x && p2.ty === tile.y ? p2 : null;
+    if (currentOccupant && currentOccupant.tx === nx && currentOccupant.ty === ny) {
+        isCurrentTile = true;
+    }
+
+    if (!isCurrentTile && nextTile.getExit(nextEnterDir) === null) {
+        // 先が塞がっていても、そのマスが相手にロックされていなければ後で回せるのでセーフとする
+        if (now < nextTile.lockUntil && nextTile.lockedBy !== 0 && (currentOccupant && nextTile.lockedBy !== currentOccupant.id)) {
+            return false; // 相手にロックされた行き止まりは本当に危険
+        }
+    }
 
     return true;
 }
 
 function aiDoFlick(t1, t2, pId, now) {
+    let speedRatio = SPEED / 2.5;
     let tempType = t1.type; let tempRot = t1.rotation; let tempOwner = t1.owner;
     let tempVx = t1.visualX; let tempVy = t1.visualY; let tempVr = t1.visualRotation;
     t1.type = t2.type; t1.rotation = t2.rotation; t1.owner = t2.owner;
     t1.visualX = t2.visualX; t1.visualY = t2.visualY; t1.visualRotation = t2.visualRotation;
     t2.type = tempType; t2.rotation = tempRot; t2.owner = tempOwner;
     t2.visualX = tempVx; t2.visualY = tempVy; t2.visualRotation = tempVr;
-    t1.lockedBy = pId; t1.lockUntil = now + 1000;
-    t2.lockedBy = pId; t2.lockUntil = now + 1000;
+    t1.lockedBy = pId; t1.lockUntil = now + (1000 * speedRatio);
+    t2.lockedBy = pId; t2.lockUntil = now + (1000 * speedRatio);
     checkEncirclement();
 }
 
@@ -579,9 +614,9 @@ function thinkAI(player, opponent, now) {
     if (isDemo && player.id === 1 && aiType === 'manual') aiType = 'saki';
     if (!isDemo && player.id === 1 && aiType === 'manual') return;
 
-    // 【バグ修正】自分が過去に触ったマスのロック麻痺呪縛を完全解消
-    const canRotate = (t) => t && !(now < t.lockUntil && t.lockedBy === opponent.id) && !isOccupied(t.x, t.y);
-    const canRotateEscape = (t) => t && !(now < t.lockUntil && t.lockedBy === opponent.id) && !(opponent.tx === t.x && opponent.ty === t.y);
+    // 【修正】回転はコマ乗りOK。フリックは対象マス両方が空いている必要あり（チート防止）
+    const canRotate = (t) => t && !(now < t.lockUntil && t.lockedBy === opponent.id);
+    const canFlick = (t1, t2) => canRotate(t1) && canRotate(t2) && !isOccupied(t1.x, t1.y) && !isOccupied(t2.x, t2.y);
 
     let target = null;
     let rotCount = 0;
@@ -592,7 +627,6 @@ function thinkAI(player, opponent, now) {
     let nextTile = (nextCoord.nx >= 0 && nextCoord.nx < GRID && nextCoord.ny >= 0 && nextCoord.ny < GRID) ? board[nextCoord.ny][nextCoord.nx] : null;
     let currentTile = board[player.ty][player.tx];
 
-    // 配列のシャッフル（回転角・方向用）
     const getShuffledArray = (arr) => {
         for (let i = arr.length - 1; i > 0; i--) { let j = Math.floor(Math.random() * (i + 1)); [arr[i], arr[j]] = [arr[j], arr[i]]; }
         return arr;
@@ -602,12 +636,9 @@ function thinkAI(player, opponent, now) {
     if (!nextTile) {
         isDanger = true;
     } else {
-        let exit = nextTile.getExit(enterDir);
-        // 【修正】壁に向かう道も危険とみなす
-        if (exit === null || !checkSimulateSafe(nextTile, enterDir, 0)) isDanger = true;
+        if (!checkSimulateSafe(nextTile, enterDir, 0)) isDanger = true;
     }
 
-    // --- 危機回避ルーチン ---
     const tryRotateNext = () => {
         if (nextTile && canRotate(nextTile)) {
             let rots = getShuffledArray([1, 2, 3]);
@@ -619,16 +650,14 @@ function thinkAI(player, opponent, now) {
     };
 
     const tryEscape = () => {
-        if (canRotateEscape(currentTile)) {
+        if (canRotate(currentTile)) {
             let rots = getShuffledArray([1, 2, 3]);
             for (let r of rots) {
-                // 足元を回すと、自分も一緒に回る物理演算
                 let newToDir = (player.toDir + r) % 4; 
                 let escCoord = getNextTileCoord(player.tx, player.ty, newToDir);
                 if (escCoord.nx >= 0 && escCoord.nx < GRID && escCoord.ny >= 0 && escCoord.ny < GRID) {
                     let escTile = board[escCoord.ny][escCoord.nx];
                     let escEnterDir = (newToDir + 2) % 4;
-                    // 回避先のマスが繋がっていて、かつ相手がロックして跳ね返される状態ではないか、出口は安全か
                     if (escTile.getExit(escEnterDir) !== null && checkSimulateSafe(escTile, escEnterDir, 0) && !(now < escTile.lockUntil && escTile.lockedBy === opponent.id)) {
                         target = currentTile; rotCount = r; return true;
                     }
@@ -639,13 +668,13 @@ function thinkAI(player, opponent, now) {
     };
 
     const tryFlickSolve = () => {
-        if (!nextTile || !canRotate(nextTile)) return false;
+        if (!nextTile) return false;
         let dirs = getShuffledArray([[0,-1],[1,0],[0,1],[-1,0]]);
         for (let d of dirs) {
             let fx = nextTile.x + d[0], fy = nextTile.y + d[1];
             if (fx >= 0 && fx < GRID && fy >= 0 && fy < GRID && !(fx === currentTile.x && fy === currentTile.y)) {
                 let candTile = board[fy][fx];
-                if (canRotate(candTile)) {
+                if (canFlick(nextTile, candTile)) {
                     if (checkSimulateSafe(candTile, enterDir, 0)) {
                         flickTarget = {t1: nextTile, t2: candTile};
                         return true;
@@ -656,53 +685,107 @@ function thinkAI(player, opponent, now) {
         return false;
     };
 
-    if (isDanger && aiType !== 'ramu') {
-        let solved = false;
-        let timeBuffer = (1.0 - player.progress) * (2.5 / SPEED); 
-
-        if (aiType === 'saki' || aiType === 'kou') {
-            let tryFlickFirst = Math.random() < 0.5;
-            if (tryFlickFirst) {
-                if (timeBuffer > 0.5) solved = tryFlickSolve();
-                if (!solved) solved = tryRotateNext();
-                if (!solved) solved = tryEscape();
-            } else {
-                solved = tryRotateNext();
-                if (!solved && timeBuffer > 0.5) solved = tryFlickSolve();
-                if (!solved) solved = tryEscape();
+    // 【追加】高度なヤケクソフリック脱出（自分の周囲のマスを、盤面中のどこかのマスと無差別にフリック）
+    const tryAdvancedFlick = () => {
+        let dirs = [[0,0], [0,-1],[1,0],[0,1],[-1,0]]; // 自分自身(0,0)も含める
+        let cands = [];
+        for (let d of dirs) {
+            let cx = player.tx + d[0], cy = player.ty + d[1];
+            if (cx >= 0 && cx < GRID && cy >= 0 && cy < GRID) {
+                let adjTile = board[cy][cx];
+                if (canRotate(adjTile)) cands.push(adjTile);
             }
+        }
+        
+        // 周辺の動かせるマスを、盤面のランダムなマスとフリック試行
+        for (let adjTile of getShuffledArray(cands)) {
+            for (let i = 0; i < 8; i++) {
+                let rx = Math.floor(Math.random() * GRID), ry = Math.floor(Math.random() * GRID);
+                let candTile = board[ry][rx];
+                if (canFlick(adjTile, candTile)) {
+                    flickTarget = {t1: adjTile, t2: candTile};
+                    return true;
+                }
+            }
+        }
+        return false;
+    };
+
+    // チョウ・サキは自陣ループ（塗り広げにならない状態）を検知して積極的に進路変更する
+    let wantToChange = false;
+    if (!isDanger && nextTile && nextTile.owner === player.id && (aiType === 'chou' || aiType === 'saki')) {
+        wantToChange = true;
+    }
+
+    if ((isDanger || wantToChange) && aiType !== 'ramu') {
+        let solved = false;
+        if (aiType === 'chou' || aiType === 'saki' || aiType === 'kou') {
+            if (Math.random() < 0.5) { solved = tryFlickSolve(); if (!solved) solved = tryRotateNext(); }
+            else { solved = tryRotateNext(); if (!solved) solved = tryFlickSolve(); }
+            if (!solved) solved = tryEscape();
         } else {
+            // セイ・デロの通常の回避
             solved = tryRotateNext();
             if (!solved) solved = tryEscape();
         }
-    }
-
-    // --- 通常行動ルーチン（陣地拡大・コウのくぼみ狙い・ラムの範囲限定） ---
-    if (!target && !flickTarget && aiType !== 'sei') {
         
-        // ラム（気まぐれ）：自分または相手の周囲(3x3)に限定してランダム操作
-        if (aiType === 'ramu') {
-            let targetCenter = Math.random() < 0.5 ? player : opponent;
-            let cands = [];
-            for (let y = Math.max(0, targetCenter.ty - 1); y <= Math.min(GRID - 1, targetCenter.ty + 1); y++) {
-                for (let x = Math.max(0, targetCenter.tx - 1); x <= Math.min(GRID - 1, targetCenter.tx + 1); x++) {
-                    if (canRotate(board[y][x])) cands.push(board[y][x]);
+        // 【追加】すべてのAI共通：通常の回避策がすべて失敗した場合は、ヤケクソで盤面をかき回す
+        if (!solved && isDanger) {
+            solved = tryAdvancedFlick(); // まずヤケクソフリックを試す
+            
+            if (!solved) {
+                // フリックもダメならヤケクソ回転
+                let escapeTargets = [];
+                if (canRotate(currentTile)) escapeTargets.push(currentTile);
+                if (nextTile && canRotate(nextTile)) escapeTargets.push(nextTile);
+                
+                if (escapeTargets.length > 0) {
+                    target = escapeTargets[Math.floor(Math.random() * escapeTargets.length)];
+                    rotCount = getShuffledArray([1, 2, 3])[0];
+                    solved = true;
                 }
             }
-            if (cands.length > 0) {
-                target = cands[Math.floor(Math.random() * cands.length)];
-                rotCount = getShuffledArray([1, 2, 3])[0];
+        }
+    }
+
+    if (!target && !flickTarget && aiType !== 'sei') {
+        if (aiType === 'ramu') {
+            let targetCenter = Math.random() < 0.5 ? player : opponent;
+            // 【修正】ラムの行動範囲（フリックは3x3、回転は5箇所）
+            if (Math.random() < 0.5) {
+                let cands = [];
+                for (let y = Math.max(0, targetCenter.ty - 1); y <= Math.min(GRID - 1, targetCenter.ty + 1); y++) {
+                    for (let x = Math.max(0, targetCenter.tx - 1); x <= Math.min(GRID - 1, targetCenter.tx + 1); x++) {
+                        let t1 = board[y][x];
+                        if (x + 1 < GRID && canFlick(t1, board[y][x + 1])) cands.push({t1: t1, t2: board[y][x + 1]});
+                        if (y + 1 < GRID && canFlick(t1, board[y + 1][x])) cands.push({t1: t1, t2: board[y + 1][x]});
+                    }
+                }
+                if (cands.length > 0) flickTarget = cands[Math.floor(Math.random() * cands.length)];
+            }
+            if (!flickTarget) {
+                let cands = [];
+                let dirs = [[0,0], [0,-1], [1,0], [0,1], [-1,0]];
+                for (let d of dirs) {
+                    let cx = targetCenter.tx + d[0], cy = targetCenter.ty + d[1];
+                    if (cx >= 0 && cx < GRID && cy >= 0 && cy < GRID) {
+                        let t = board[cy][cx];
+                        if (canRotate(t)) cands.push(t);
+                    }
+                }
+                if (cands.length > 0) {
+                    target = cands[Math.floor(Math.random() * cands.length)];
+                    rotCount = getShuffledArray([1, 2, 3])[0];
+                }
             }
         } 
-        // サキ、コウ、デロの通常行動
         else {
-            // コウ・サキ専用：境界線やフリックによる盤面荒らし
             if ((aiType === 'saki' || aiType === 'kou') && Math.random() < 0.25) {
                 let cands = [];
                 for (let i=0; i<6; i++) {
                     let rx = Math.floor(Math.random() * (GRID - 1)), ry = Math.floor(Math.random() * GRID);
                     let t1 = board[ry][rx], t2 = board[ry][rx+1];
-                    if (canRotate(t1) && canRotate(t2)) {
+                    if (canFlick(t1, t2)) {
                         if (aiType === 'kou' && (t1.owner !== player.id || t2.owner !== player.id)) cands.push({t1, t2});
                         else if (aiType === 'saki') cands.push({t1, t2});
                     }
@@ -712,12 +795,10 @@ function thinkAI(player, opponent, now) {
 
             if (!flickTarget) {
                 let cands = [];
-                // 候補集め（サキは自分の色以外を厳選、デロ・コウは確率で自陣も許容）
                 for (let y = 0; y < GRID; y++) {
                     for (let x = 0; x < GRID; x++) {
                         let t = board[y][x];
-                        
-                        // 【バグ修正】自分がこれから進む予定の「安全なルート」は、陣地取りで破壊しないように除外
+                        // 【修正】自分の安全な進路は壊さない
                         if (t === nextTile && !isDanger) continue;
 
                         if (canRotate(t)) {
@@ -725,7 +806,6 @@ function thinkAI(player, opponent, now) {
                             if (aiType === 'saki') {
                                 if (isNotMyColor) cands.push(t);
                             } else {
-                                // デロ・コウ：80%で非自陣、20%で自陣も許容（ミラーリング防止の隙）
                                 if (isNotMyColor || Math.random() < 0.2) cands.push(t);
                             }
                         }
@@ -734,7 +814,6 @@ function thinkAI(player, opponent, now) {
 
                 if (cands.length > 0) {
                     if (aiType === 'kou') {
-                        // 【コウ専用】：周辺の自分の色の多さ（くぼみ具合）をスコア化して最も囲みやすいマスを優先
                         cands.sort((a, b) => {
                             let scoreA = 0, scoreB = 0;
                             const countFriends = (tile) => {
@@ -748,9 +827,28 @@ function thinkAI(player, opponent, now) {
                                 }
                                 return cnt;
                             };
-                            return countFriends(b) - countFriends(a); // 友好的な隣接数が多い順にソート
+                            return countFriends(b) - countFriends(a);
                         });
-                        target = cands[0]; // 最もくぼみに位置するマスを選択
+                        target = cands[0]; 
+                    } else if (aiType === 'dero') {
+                        // デロ（開拓者）：まだ誰にも塗られていない無色のマスを最優先で狙う
+                        let neutralCands = cands.filter(t => t.owner === 0);
+                        if (neutralCands.length > 0) {
+                            target = neutralCands[Math.floor(Math.random() * neutralCands.length)];
+                        } else {
+                            target = cands[Math.floor(Math.random() * cands.length)];
+                        }
+                    } else if (aiType === 'chou') {
+                        // チョウ（頂点）：敵陣の破壊・奪取を最優先、無ければ無色を狙う
+                        let enemyCands = cands.filter(t => t.owner === opponent.id);
+                        let neutralCands = cands.filter(t => t.owner === 0);
+                        if (enemyCands.length > 0) {
+                            target = enemyCands[Math.floor(Math.random() * enemyCands.length)];
+                        } else if (neutralCands.length > 0) {
+                            target = neutralCands[Math.floor(Math.random() * neutralCands.length)];
+                        } else {
+                            target = cands[Math.floor(Math.random() * cands.length)];
+                        }
                     } else {
                         target = cands[Math.floor(Math.random() * cands.length)];
                     }
@@ -760,28 +858,43 @@ function thinkAI(player, opponent, now) {
         }
     }
 
-    // --- アクションの実行 ---
+    let speedRatio = SPEED / 2.5;
+
     if (flickTarget) {
         aiDoFlick(flickTarget.t1, flickTarget.t2, player.id, now);
     } else if (target && rotCount > 0) {
         rotateTileLogic(target, rotCount);
         target.lockedBy = player.id;
         target.lockUntil = now + 1000;
+    } else {
+        // 【修正】ターゲットが無く「何もしない(パス)」場合は、長考せずにすぐ(約0.2秒後)に盤面を再評価する
+        player.cooldown = now + (200 * speedRatio);
+        return; 
     }
     
-    // 思考遅延（サキは一段階速い）
-    let baseDelay = 1200 / (SPEED / 2.5);
-    if (aiType === 'saki') baseDelay *= 0.6; 
-    player.cooldown = now + baseDelay + Math.random() * 500;
+    // 割り算を掛け算に変更（SPEED値が小さい＝高速なほど、待機時間も短くなる）
+    let baseDelay = 1200 * speedRatio;
+    if (aiType === 'chou') baseDelay *= 0.4; // チョウは超高速思考
+    else if (aiType === 'saki') baseDelay *= 0.6;
+    
+    let actionCost = 0;
+    if (flickTarget) actionCost = 1;
+    else if (target) actionCost = rotCount;
+    
+    // 【修正】追加コスト（200ms）もゲームスピードに同期させる
+    player.cooldown = now + baseDelay + (actionCost * 200 * speedRatio) + (Math.random() * 300 * speedRatio);
 }
 
-// AI思考ループ
-setInterval(() => {
-    if (gameState !== 'playing') return;
-    let now = performance.now();
-    thinkAI(p2, p1, now); 
-    thinkAI(p1, p2, now); 
-}, 150); 
+// 【修正】AI思考ループの頻度をゲームスピード(SPEED)に対して可変にする
+function aiLoop() {
+    if (gameState === 'playing') {
+        let now = performance.now();
+        thinkAI(p2, p1, now); 
+        thinkAI(p1, p2, now); 
+    }
+    setTimeout(aiLoop, 150 * (SPEED / 2.5));
+}
+setTimeout(aiLoop, 150); 
 
 // --- 座標計算と描画 ---
 function getPos(p) {
@@ -844,7 +957,10 @@ function update(dt) {
 
     if (gameState !== 'playing') return; // プレイ中以外は時間を進めない
 
-    timeLeft -= dt;
+    // 【修正】タイマーの減算をキャラクターの移動速度(SPEED)に同期させる
+    // 基準速度(2.5)の時は実時間通り1秒減る。超絶早送り(0.1)の時は25倍の速度で時間が減る。
+    timeLeft -= dt * (2.5 / SPEED); 
+    
     if (timeLeft <= 0) {
         timeLeft = 0; 
         gameState = 'finished'; 
@@ -1078,9 +1194,9 @@ function draw() {
         if (scoreP1 > scoreP2) { ctx.fillStyle = '#00ffff'; resultMsg = "P1 WIN!"; } 
         else if (scoreP2 > scoreP1) { ctx.fillStyle = '#ff0055'; resultMsg = "P2 WIN!"; } 
         else { ctx.fillStyle = '#fff'; resultMsg = "DRAW"; }
-        ctx.fillText(resultMsg, canvas.width/2, canvas.height/2 + 20);
-        ctx.font = '24px sans-serif'; ctx.fillStyle = '#ccc';
-        ctx.fillText("画面タップで設定へ戻る", canvas.width/2, canvas.height/2 + 80);
+       ctx.fillText(resultMsg, canvas.width/2, canvas.height/2 + 20);
+        ctx.font = '24px sans-serif'; ctx.fillStyle = '#ffcc00';
+        ctx.fillText("🔁 タップでこのまま再戦！", canvas.width/2, canvas.height/2 + 80);
     }
 }
 
