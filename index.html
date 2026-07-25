@@ -30,6 +30,10 @@
             box-shadow: 0 4px 30px rgba(0, 255, 255, 0.2), 0 4px 30px rgba(255, 0, 85, 0.2);
             cursor: pointer;
             border: 1px solid #1a1a1a;
+            /* 追加: スマホ画面にはみ出さないように縮小し、正方形を維持 */
+            max-width: 96vw;
+            height: auto;
+            aspect-ratio: 1 / 1;
         }
         #ui {
             margin-top: 10px;
@@ -191,6 +195,11 @@ function startGame() {
     if (!isAutoBattle) {
         document.getElementById('autoBtn').style.display = 'none';
     }
+    
+    // プレイ中は不要なUIを隠して画面を広く使い、一番上へスクロール固定
+    document.getElementById('settings').style.display = 'none';
+    document.getElementById('instructions').style.display = 'none';
+    window.scrollTo(0, 0); 
 }
 
 document.getElementById('startBtn').addEventListener('click', () => {
@@ -392,6 +401,19 @@ function resetGame() {
     document.getElementById('p1AiSelect').disabled = false;
     document.getElementById('p2AiSelect').disabled = false;
     document.getElementById('demoBtn').style.display = 'block';
+
+    // 隠していたUIを再表示
+    document.getElementById('settings').style.display = 'flex';
+    document.getElementById('instructions').style.display = 'block';
+
+    // 設定画面に戻った際、連続対戦ボタンを再表示し状態をリセットする
+    let autoBtn = document.getElementById('autoBtn');
+    if (autoBtn) {
+        autoBtn.style.display = 'block';
+        autoBtn.innerText = '🔄 連続対戦開始';
+        autoBtn.style.background = '#800080';
+    }
+    isAutoBattle = false; 
 }
 resetGame();
 
@@ -403,15 +425,29 @@ function getGridCoord(e) {
     let rect = canvas.getBoundingClientRect();
     let clientX = e.touches ? e.touches[0].clientX : e.clientX;
     let clientY = e.touches ? e.touches[0].clientY : e.clientY;
-    let x = Math.floor((clientX - rect.left) / TILE_SIZE);
-    let y = Math.floor((clientY - rect.top) / TILE_SIZE);
+    
+    // CSS縮小表示に対応するための座標変換（実描画サイズと内部500pxの比率）
+    let scaleX = canvas.width / rect.width;
+    let scaleY = canvas.height / rect.height;
+    let canvasX = (clientX - rect.left) * scaleX;
+    let canvasY = (clientY - rect.top) * scaleY;
+    
+    let x = Math.floor(canvasX / TILE_SIZE);
+    let y = Math.floor(canvasY / TILE_SIZE);
     return {x, y, clientX, clientY};
 }
 
 canvas.addEventListener('mousedown', handleStart);
-canvas.addEventListener('touchstart', handleStart);
+canvas.addEventListener('touchstart', handleStart, { passive: false });
 window.addEventListener('mouseup', handleEnd);
 window.addEventListener('touchend', handleEnd);
+
+// スマホでのスワイプスクロールを防止（プレイ中・一時停止中のみ）
+document.body.addEventListener('touchmove', function(e) {
+    if (gameState === 'playing' || gameState === 'paused') {
+        e.preventDefault();
+    }
+}, { passive: false });
 
 function handleStart(e) {
     if (gameState === 'finished') { 
