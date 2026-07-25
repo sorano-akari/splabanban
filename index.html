@@ -450,6 +450,11 @@ document.body.addEventListener('touchmove', function(e) {
 }, { passive: false });
 
 function handleStart(e) {
+    // 【修正】スマホ特有のタッチイベント二重発火（ゴーストクリック）を防止
+    if (e.type === 'touchstart') {
+        e.preventDefault();
+    }
+
     if (gameState === 'finished') { 
         // 終了画面タップで「同じ条件で即再戦」
         resetGame();
