@@ -130,6 +130,7 @@
     <div style="margin-top: 15px; display: flex; gap: 10px; align-items: center; justify-content: center;">
         <button id="startBtn" style="padding: 12px 40px; cursor:pointer; background: linear-gradient(45deg, #00ffff, #0088ff); color:#000; border:none; border-radius:30px; font-size: 1.5rem; font-weight:bold; box-shadow: 0 4px 15px rgba(0, 255, 255, 0.4); transition: 0.2s;">▶ スタート</button>
         <button id="demoBtn" style="padding: 8px 15px; cursor:pointer; background: #555; color:#fff; border:none; border-radius:20px; font-size: 0.9rem; font-weight:bold;">🤖 デモ観戦</button>
+        <button id="autoBtn" style="padding: 8px 15px; cursor:pointer; background: #800080; color:#fff; border:none; border-radius:20px; font-size: 0.9rem; font-weight:bold;">🔄 連続対戦開始</button>
     </div>
     <div id="records" style="font-size: 0.8rem; color: #aaa; margin-top: 10px;">
         戦績: あなた <span id="winCount1">0</span>勝 / COM <span id="winCount2">0</span>勝 / 引分 <span id="drawCount">0</span>回
@@ -164,21 +165,18 @@ document.getElementById('speedSelect').addEventListener('change', (e) => { if(ga
 document.getElementById('timeSelect').addEventListener('change', (e) => { if(gameState === 'waiting') { GAME_TIME = parseInt(e.target.value); resetGame(); } });
 
 let isDemo = false;
+let isAutoBattle = false; // 連続対戦フラグ
 
 function startGame() {
     gameState = 'playing';
     lastTime = performance.now();
-    
-    // 【重要】スタート時にプルダウンの最新の値を確実に読み込む
     SPEED = parseFloat(document.getElementById('speedSelect').value);
     
-    // プレイ中は各種設定ボタン・プルダウンを操作不可（disabled）にロックする
     let startBtn = document.getElementById('startBtn');
     startBtn.innerText = '⏸ 一時停止';
     startBtn.style.background = 'linear-gradient(45deg, #ffaa00, #ff4400)';
     startBtn.style.boxShadow = '0 4px 15px rgba(255, 170, 0, 0.4)';
     
-    // シャッフルボタンを「ギブアップ（リセット）」に変更
     let actionBtn = document.getElementById('actionBtn');
     actionBtn.innerText = '🏳️ リセット';
     actionBtn.style.background = '#ff0055';
@@ -190,13 +188,16 @@ function startGame() {
     document.getElementById('p1AiSelect').disabled = true;
     document.getElementById('p2AiSelect').disabled = true;
     document.getElementById('demoBtn').style.display = 'none';
+    if (!isAutoBattle) {
+        document.getElementById('autoBtn').style.display = 'none';
+    }
 }
 
 document.getElementById('startBtn').addEventListener('click', () => {
     if (gameState === 'finished') {
-        resetGame(); // 【修正】タイムアップ後にボタンを押すとリセットされるように変更
+        resetGame(); 
     } else if (gameState === 'waiting') {
-        isDemo = false;
+        isDemo = false; isAutoBattle = false;
         startGame();
     } else if (gameState === 'playing') {
         gameState = 'paused';
@@ -205,7 +206,7 @@ document.getElementById('startBtn').addEventListener('click', () => {
         document.getElementById('startBtn').style.boxShadow = '0 4px 15px rgba(0, 255, 136, 0.4)';
     } else if (gameState === 'paused') {
         gameState = 'playing';
-        lastTime = performance.now(); // 時間のワープを防ぐ
+        lastTime = performance.now(); 
         document.getElementById('startBtn').innerText = '⏸ 一時停止';
         document.getElementById('startBtn').style.background = 'linear-gradient(45deg, #ffaa00, #ff4400)';
         document.getElementById('startBtn').style.boxShadow = '0 4px 15px rgba(255, 170, 0, 0.4)';
@@ -213,17 +214,36 @@ document.getElementById('startBtn').addEventListener('click', () => {
 });
 
 document.getElementById('actionBtn').addEventListener('click', () => {
-    if (gameState === 'waiting') {
-        resetGame(); // シャッフル
-    } else if (gameState === 'playing' || gameState === 'paused') {
-        resetGame(); // ギブアップ（初期化）
-    }
+    if (gameState === 'waiting') resetGame();
+    else if (gameState === 'playing' || gameState === 'paused') resetGame();
 });
 
 document.getElementById('demoBtn').addEventListener('click', () => {
     if (gameState === 'waiting' || gameState === 'finished') {
-        isDemo = true;
+        isDemo = true; isAutoBattle = false;
         startGame();
+    }
+});
+
+document.getElementById('autoBtn').addEventListener('click', () => {
+    if (gameState === 'waiting' || gameState === 'finished') {
+        if (!isAutoBattle) {
+            isDemo = true; isAutoBattle = true;
+            document.getElementById('autoBtn').innerText = '⏹ 連続対戦停止';
+            document.getElementById('autoBtn').style.background = '#444';
+            startGame();
+        } else {
+            isAutoBattle = false;
+            document.getElementById('autoBtn').innerText = '🔄 連続対戦開始';
+            document.getElementById('autoBtn').style.background = '#800080';
+        }
+    } else if (gameState === 'playing' || gameState === 'paused') {
+        if (isAutoBattle) {
+            isAutoBattle = false;
+            document.getElementById('autoBtn').innerText = '🔄 連続対戦開始';
+            document.getElementById('autoBtn').style.background = '#800080';
+            document.getElementById('autoBtn').style.display = 'none'; // プレイ中は隠す
+        }
     }
 });
 
@@ -569,25 +589,24 @@ function checkSimulateSafe(tile, enterDir, diff) {
     // 盤面外に出る場合は反射されるので危険
     if (nx < 0 || nx >= GRID || ny < 0 || ny >= GRID) return false;
 
-    // 次のマス（2手先）に入った際、接続先が存在するか（壁ドン反射されないか）をチェック
     let nextEnterDir = (exitDir + 2) % 4;
     let nextTile = board[ny][nx];
     
-    // 【修正】2手先のマスが「現在自分が乗っているマス」だった場合は逆流になるため、出口チェックを免除する
-    // （自分がそこに到達する時には既に状況が変わっているため）
-    // また、自分が回せるマス（相手にロックされていないマス）であれば、後で回せばいいので「安全」とみなす
+    // 2手先のマスが「現在自分が乗っているマス」だった場合は逆流になるため、出口チェックを免除
     let now = performance.now();
-    let isCurrentTile = false;
-    // 呼び出し元のスコープからプレイヤーの現在位置を取得（簡易的）
-    let currentOccupant = p1.tx === tile.x && p1.ty === tile.y ? p1 : p2.tx === tile.x && p2.ty === tile.y ? p2 : null;
-    if (currentOccupant && currentOccupant.tx === nx && currentOccupant.ty === ny) {
-        isCurrentTile = true;
-    }
-
+    // 【修正】グローバル変数 p1, p2 の現在位置と直接比較して自分が乗っているマスか判定する
+    let isCurrentTileP1 = (p1 && p1.tx === nx && p1.ty === ny);
+    let isCurrentTileP2 = (p2 && p2.tx === nx && p2.ty === ny);
+    let isCurrentTile = isCurrentTileP1 || isCurrentTileP2;
+    
+    // 自分自身が乗っているマスを先読みした場合は、逆流になるので getExit のチェックを免除
     if (!isCurrentTile && nextTile.getExit(nextEnterDir) === null) {
-        // 先が塞がっていても、そのマスが相手にロックされていなければ後で回せるのでセーフとする
-        if (now < nextTile.lockUntil && nextTile.lockedBy !== 0 && (currentOccupant && nextTile.lockedBy !== currentOccupant.id)) {
-            return false; // 相手にロックされた行き止まりは本当に危険
+        // 先が塞がっていても、相手にロックされていなければ後で自分で回せるのでセーフとする
+        if (now < nextTile.lockUntil && nextTile.lockedBy !== 0) {
+            // ロックしているのが自分でないなら本当に危険
+            if ((isCurrentTileP1 && nextTile.lockedBy !== 1) || (isCurrentTileP2 && nextTile.lockedBy !== 2)) {
+                return false; 
+            }
         }
     }
 
@@ -639,11 +658,65 @@ function thinkAI(player, opponent, now) {
         if (!checkSimulateSafe(nextTile, enterDir, 0)) isDanger = true;
     }
 
+    // ルートの評価関数（無色・敵色は高評価、逆走はペナルティ）
+    const evaluateRoute = (tile, checkRot, fromDir) => {
+        let score = 0;
+        let tempRot = (tile.rotation + checkRot) % 4;
+        let localIn = (fromDir - tempRot + 4) % 4;
+        let localOut = null;
+        if (tile.type === 'line') { if (localIn === 0) localOut = 2; if (localIn === 2) localOut = 0; }
+        else if (tile.type === 'curve') { if (localIn === 0) localOut = 1; if (localIn === 1) localOut = 0; }
+        else if (tile.type === 'cross' || tile.type === 'overpass') { localOut = (localIn + 2) % 4; }
+        else if (tile.type === 'oneway') { if (localIn === 2) localOut = 0; }
+        else if (tile.type === 'double_curve') {
+            if (localIn === 0) localOut = 3; if (localIn === 3) localOut = 0;
+            if (localIn === 1) localOut = 2; if (localIn === 2) localOut = 1;
+        }
+        if (localOut === null) return -999;
+        
+        let exitDir = (localOut + tempRot) % 4;
+        let nx = tile.x, ny = tile.y;
+        if (exitDir === 0) ny--; else if (exitDir === 1) nx++; else if (exitDir === 2) ny++; else if (exitDir === 3) nx--;
+        if (nx >= 0 && nx < GRID && ny >= 0 && ny < GRID) {
+            let nextT = board[ny][nx];
+            if (nextT.owner === 0) score += 10; // 無色
+            else if (nextT.owner === opponent.id) score += 5; // 敵色
+            else score -= 10; // 自陣
+            
+            // 逆走（来た道を戻る）には強烈なペナルティ
+            if (nx === currentTile.x && ny === currentTile.y) score -= 100;
+        }
+        return score;
+    };
+
     const tryRotateNext = () => {
         if (nextTile && canRotate(nextTile)) {
-            let rots = getShuffledArray([1, 2, 3]);
+            let candidates = [];
+            let rots = [1, 2, 3];
             for (let r of rots) {
-                if (checkSimulateSafe(nextTile, enterDir, r)) { target = nextTile; rotCount = r; return true; }
+                if (checkSimulateSafe(nextTile, enterDir, r)) {
+                    let s = evaluateRoute(nextTile, r, enterDir);
+                    // 評価値を基に「重み（選択されやすさ）」を計算（マイナス評価でも最低限の重みを持たせる）
+                    let weight = Math.max(1, s + 150); 
+                    candidates.push({ rot: r, weight: weight });
+                }
+            }
+            if (candidates.length > 0) {
+                // スコアの高さに応じて選ばれやすくする「重みづけランダム」
+                let totalWeight = candidates.reduce((sum, c) => sum + c.weight, 0);
+                let randomVal = Math.random() * totalWeight;
+                let accumulated = 0;
+                let chosen = candidates[0];
+                for (let c of candidates) {
+                    accumulated += c.weight;
+                    if (randomVal <= accumulated) {
+                        chosen = c;
+                        break;
+                    }
+                }
+                target = nextTile;
+                rotCount = chosen.rot;
+                return true;
             }
         }
         return false;
@@ -973,6 +1046,16 @@ function update(dt) {
         
         // TIME UP後にスタートボタンを「設定に戻る」に変更
         document.getElementById('startBtn').innerText = '設定に戻る';
+
+        // 連続対戦中なら、結果を1秒間表示してから自動で次の試合を開始する
+        if (isAutoBattle) {
+            setTimeout(() => {
+                if (isAutoBattle && gameState === 'finished') {
+                    resetGame();
+                    startGame();
+                }
+            }, 1000); // 1000ミリ秒（1秒）後に次戦スタート
+        }
     }
     document.getElementById('timer').innerText = Math.ceil(timeLeft);
 
